@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Van Dort Letselschade Hub</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase Libraries -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        window.firebase = {
+            initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
+            getFirestore, doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, serverTimestamp
+        };
+    </script>
+    <!-- Google Font 'Inter' -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f0f4f9; }
+        .bg-primary { background-color: #0E3190; }
+        .text-primary { color: #0E3190; }
+        .border-primary { border-color: #0E3190; }
+        .hover\:bg-primary-dark:hover { background-color: #0A246A; }
+        .bg-accent { background-color: #19AACD; }
+        .text-accent { color: #19AACD; }
+        .border-accent { border-color: #19AACD; }
+        .bg-subtle { background-color: #F8FBFC; }
+        .readonly-input { background-color: #e9ecef; opacity: 0.7; cursor: not-allowed; }
+        .disabled-section { opacity: 0.6; pointer-events: none; }
+        .invalid-input { border-color: #ef4444; box-shadow: 0 0 0 1px #ef4444; }
+        #notification {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            padding: 12px 24px; border-radius: 8px; color: white; font-weight: 500;
+            z-index: 1050; transition: opacity 0.5s, transform 0.5s;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .modal-backdrop { z-index: 1040; }
+        .modal { z-index: 1050; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- App Container -->
+    <div id="app-container">
+
+        <!-- =================================================================== -->
+        <!-- PAGINA 1: VAN DORT LETSELSCHADE HUB (LANDINGSPAGINA)              -->
+        <!-- =================================================================== -->
+        <div id="hub-page">
+            <div class="flex flex-col min-h-screen">
+                <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10">
+                    <div>
+                        <h1 class="text-2xl font-bold text-primary">Van Dort Letselschade Hub</h1>
+                        <p class="text-sm text-gray-500">Uw centrale startpunt</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-medium">Ingelogd als:</span>
+                        <select id="user-selector" class="text-sm font-bold border-gray-300 rounded-md shadow-sm"></select>
+                    </div>
+                </header>
+                <main class="flex-grow p-4 md:p-6 lg:p-8 flex items-center justify-center">
+                    <div class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Widget 1: Team Prikbord -->
+                        <div class="bg-white p-6 rounded-lg shadow-xl flex flex-col">
+                            <h2 class="text-xl font-bold text-primary mb-4">Team Prikbord</h2>
+                            <p class="text-gray-600 mb-6 flex-grow">Een centrale plek voor mededelingen, vragen en memo's.</p>
+                            <div class="space-y-3 mb-6">
+                                <div class="flex justify-between items-center"><span class="font-medium">Openstaande vragen/problemen:</span><span id="hub-prikbord-open-tasks" class="bg-yellow-100 text-yellow-800 font-bold px-3 py-1 rounded-full">0</span></div>
+                                <div class="flex justify-between items-center"><span class="font-medium">Nieuwe berichten voor u:</span><span id="hub-prikbord-private-messages" class="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full">0</span></div>
+                            </div>
+                            <button id="btn-go-to-prikbord" class="mt-auto w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-lg shadow-sm">Ga naar Prikbord &rarr;</button>
+                        </div>
+                        <!-- Widget 2: Derdengeld Verantwoording -->
+                        <div class="bg-white p-6 rounded-lg shadow-xl flex flex-col">
+                            <h2 class="text-xl font-bold text-primary mb-4">Derdengeld Verantwoording</h2>
+                            <p class="text-gray-600 mb-6 flex-grow">Beheer en verantwoord de derdengelden.</p>
+                             <div class="space-y-3 mb-6">
+                                <div class="flex justify-between items-center"><span class="font-medium">Mijn Goedkeuringen:</span><span id="hub-derdengeld-approvals" class="bg-yellow-100 text-yellow-800 font-bold px-3 py-1 rounded-full">0</span></div>
+                                <div class="flex justify-between items-center"><span class="font-medium">Mijn Openstaande Taken:</span><span id="hub-derdengeld-tasks" class="bg-accent text-white font-bold px-3 py-1 rounded-full">0</span></div>
+                            </div>
+                            <button id="btn-go-to-derdengeld" class="mt-auto w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-lg shadow-sm">Open Derdengeld App &rarr;</button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- PAGINA 2: TEAM PRIKBORD                                           -->
+        <!-- =================================================================== -->
+        <div id="prikbord-page" class="hidden">
+            <!-- Prikbord HTML wordt hier dynamisch gegenereerd -->
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- PAGINA 3: DERDENGELD APP CONTAINER                                -->
+        <!-- =================================================================== -->
+        <div id="derdengeld-app-container" class="hidden">
+            <!-- Volledige HTML van de Derdengeld App wordt hier ingevoegd -->
+        </div>
+
+    </div> <!-- Einde #app-container -->
+    
+    <!-- Globale Notificatie & Modals -->
+    <div id="notification" class="hidden"></div>
+    <div id="modal-container"></div>
+
+    <!-- =================================================================== -->
+    <!-- HET SCRIPT DAT DE HELE APP LAAT WERKEN                            -->
+    <!-- =================================================================== -->
+    <script type="module">
+        // --- GLOBALE CONFIGURATIE & STAAT ---
+        const {
+            initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
+            getFirestore, doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, serverTimestamp
+        } = window.firebase;
+
+        // Statische gebruikerslijst, de "single source of truth"
+        const COLLEAGUES = ['Werknemer 1', 'Werknemer 2', 'Werknemer 3', 'Ine van Dort'];
+        let currentUserDisplayName = COLLEAGUES[3]; // Standaard Ine
+
+        // Firebase & Prikbord staat
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        let db, auth, currentUser;
+        let allMessages = [];
+        let prikbordUnsubscribe = () => {};
+        let commentsUnsubscribe = () => {};
+        let currentOpenMessageId = null;
+
+        // --- INITIALISATIE VAN DE APP ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            setupUserSelector();
+            
+            if (firebaseConfig) {
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            currentUser = user;
+                            setupRealtimeListeners();
+                        } else {
+                            signInAnonymously(auth);
+                        }
+                    });
+                } catch (error) {
+                    console.error("Firebase initialisatie mislukt:", error);
+                    showNotification("Kon geen verbinding maken met de database.", "error");
+                }
+            } else {
+                console.warn("Firebase config niet gevonden.");
+                showNotification("Database configuratie niet gevonden.", "error");
+            }
+            
+            initializeDerdengeldApp();
+            setupEventListeners();
+            showPage('hub-page');
+        });
+
+        function setupUserSelector() {
+            const selector = document.getElementById('user-selector');
+            selector.innerHTML = COLLEAGUES.map(name => `<option value="${name}" ${name === currentUserDisplayName ? 'selected' : ''}>${name}</option>`).join('');
+            selector.addEventListener('change', (e) => {
+                currentUserDisplayName = e.target.value;
+                if (window.derdengeldApp) window.derdengeldApp.setCurrentUser(currentUserDisplayName);
+                updateHubWidgets();
+                if (document.getElementById('prikbord-page').style.display !== 'none') renderPrikbord();
+            });
+        }
+        
+        function setupRealtimeListeners() {
+            prikbordUnsubscribe();
+            const messagesQuery = query(collection(db, `/artifacts/${appId}/public/data/messages`));
+            prikbordUnsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+                let messages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                messages.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                allMessages = messages;
+                updateHubWidgets();
+                if (document.getElementById('prikbord-page').style.display !== 'none') renderMessages();
+                if (currentOpenMessageId) renderMessageDetailModal(currentOpenMessageId);
+            }, (error) => {
+                console.error("Fout in prikbord listener:", error);
+                showNotification("Kon prikbord-berichten niet laden.", "error");
+            });
+        }
+        
+        // --- NAVIGATIE ---
+        const allPages = ['hub-page', 'prikbord-page', 'derdengeld-app-container'];
+        const derdengeldPages = ['derdengeld-dashboard-page', 'derdengeld-new-form-page', 'derdengeld-task-view-page', 'derdengeld-report-page'];
+
+        function showPage(pageId) {
+            allPages.forEach(p => document.getElementById(p)?.classList.add('hidden'));
+            document.getElementById(pageId)?.classList.remove('hidden');
+            if (pageId === 'prikbord-page') renderPrikbord();
+            if (pageId === 'hub-page') updateHubWidgets();
+        }
+
+        function showDerdengeldPage(pageId) {
+            showPage('derdengeld-app-container');
+            derdengeldPages.forEach(p => document.getElementById(p)?.classList.add('hidden'));
+            document.getElementById(pageId)?.classList.remove('hidden');
+            if (pageId === 'derdengeld-dashboard-page' && window.derdengeldApp) {
+                window.derdengeldApp.renderDashboard();
+            }
+        }
+
+        // --- HUB LOGICA ---
+        function updateHubWidgets() {
+            const openIssues = allMessages.filter(m => ['Vraag', 'Probleem'].includes(m.type) && m.status !== 'Afgehandeld').length;
+            const privateMessages = allMessages.filter(m => m.isPrivate && m.recipient === currentUserDisplayName && m.status !== 'Afgehandeld').length;
+            document.getElementById('hub-prikbord-open-tasks').textContent = openIssues;
+            document.getElementById('hub-prikbord-private-messages').textContent = privateMessages;
+            if (window.derdengeldApp) {
+                const stats = window.derdengeldApp.getStats();
+                document.getElementById('hub-derdengeld-approvals').textContent = stats.approvals;
+                document.getElementById('hub-derdengeld-tasks').textContent = stats.myTasks;
+            }
+        }
+        
+        // --- MODAL FUNCTIES ---
+        function openModal(innerHTML) {
+            const modalContainer = document.getElementById('modal-container');
+            modalContainer.innerHTML = `<div class="modal-backdrop fixed inset-0 bg-gray-800 bg-opacity-75"></div><div class="modal fixed inset-0 flex items-center justify-center p-4">${innerHTML}</div>`;
+        }
+
+        function closeModal() {
+            commentsUnsubscribe();
+            currentOpenMessageId = null;
+            document.getElementById('modal-container').innerHTML = '';
+        }
+
+        // --- PRIKBORD RENDER FUNCTIES ---
+        function renderPrikbord() {
+            const container = document.getElementById('prikbord-page');
+            container.innerHTML = `
+                <div class="flex flex-col h-screen">
+                    <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10 shrink-0">
+                        <div><h1 class="text-2xl font-bold text-primary">Team Prikbord</h1><p class="text-sm text-gray-500">Mededelingen, vragen en memo's</p></div>
+                        <div class="flex items-center gap-4">
+                            <button id="btn-back-to-hub" class="text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Hub</button>
+                            <button id="btn-new-message" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg shadow-sm">+ Nieuw Bericht</button>
+                        </div>
+                    </header>
+                    <main class="flex-grow p-4 md:p-6 lg:p-8 grid grid-cols-12 gap-6 overflow-hidden">
+                        <div class="col-span-12 md:col-span-3 bg-white p-4 rounded-lg shadow-lg flex flex-col">
+                            <h2 class="text-lg font-semibold mb-4 border-b pb-2">Filters</h2>
+                            <div class="space-y-4">
+                                <div><label for="filter-search" class="text-sm font-medium">Zoeken</label><input type="text" id="filter-search" placeholder="Zoek op trefwoord..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></div>
+                                <div><label for="filter-type" class="text-sm font-medium">Type</label><select id="filter-type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"><option value="all">Alles</option>${['Memo', 'Vraag', 'Mededeling', 'Belangrijk', 'Probleem'].map(t=>`<option>${t}</option>`).join('')}</select></div>
+                                <div><label for="filter-user" class="text-sm font-medium">Auteur</label><select id="filter-user" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"><option value="all">Iedereen</option>${COLLEAGUES.map(u => `<option value="${u}">${u}</option>`).join('')}</select></div>
+                            </div>
+                        </div>
+                        <div id="prikbord-grid" class="col-span-12 md:col-span-9 overflow-y-auto no-scrollbar space-y-4"></div>
+                    </main>
+                </div>`;
+            renderMessages();
+        }
+
+        function renderMessages() {
+            const grid = document.getElementById('prikbord-grid');
+            if (!grid) return;
+            const searchTerm = document.getElementById('filter-search').value.toLowerCase();
+            const filterType = document.getElementById('filter-type').value;
+            const filterUser = document.getElementById('filter-user').value;
+            const filtered = allMessages.filter(m => {
+                const isVisible = !m.isPrivate || m.author === currentUserDisplayName || m.recipient === currentUserDisplayName;
+                if (!isVisible) return false;
+                const matchesSearch = !searchTerm || m.title.toLowerCase().includes(searchTerm) || m.content.toLowerCase().includes(searchTerm);
+                const matchesType = filterType === 'all' || m.type === filterType;
+                const matchesUser = filterUser === 'all' || m.author === filterUser;
+                return matchesSearch && matchesType && matchesUser;
+            });
+            grid.innerHTML = filtered.length ? filtered.map(createMessageCard).join('') : `<div class="text-center p-10 bg-white rounded-lg shadow"><p class="text-gray-500">Geen berichten gevonden.</p></div>`;
+        }
+
+        function createMessageCard(msg) {
+            const priorityColors = {'Hoog': 'border-red-500', 'Normaal': 'border-yellow-500', 'Laag': 'border-blue-500'};
+            const statusColors = {'Nieuw': 'bg-blue-100 text-blue-800', 'In behandeling': 'bg-yellow-100 text-yellow-800', 'Afgehandeld': 'bg-green-100 text-green-800'};
+            let visibilityInfo = msg.isPrivate ? `🔒 Privé aan ${msg.recipient}` : `👥 Voor iedereen`;
+            const date = msg.createdAt?.seconds ? new Date(msg.createdAt.seconds * 1000).toLocaleDateString('nl-NL') : 'Zojuist';
+            return `<div class="bg-white p-4 rounded-lg shadow-md border-l-4 ${priorityColors[msg.priority] || 'border-gray-300'} cursor-pointer btn-view-message" data-id="${msg.id}">
+                        <div class="flex justify-between items-start">
+                            <div><h3 class="font-bold text-lg text-primary pointer-events-none">${msg.title}</h3><p class="text-sm text-gray-500 pointer-events-none">Door: ${msg.author} op ${date}</p></div>
+                            <div class="flex items-center gap-2 text-xs font-semibold pointer-events-none"><span class="text-gray-500">${visibilityInfo}</span><span class="px-2 py-1 rounded-full ${statusColors[msg.status] || ''}">${msg.status}</span></div>
+                        </div>
+                        <p class="mt-3 text-gray-700 truncate pointer-events-none">${msg.content}</p>
+                    </div>`;
+        }
+
+        function renderNewMessageModal(messageId = null) {
+            const msg = messageId ? allMessages.find(m => m.id === messageId) : null;
+            const isEdit = !!msg;
+            const userOptions = COLLEAGUES.filter(u => u !== currentUserDisplayName).map(u => `<option value="${u}" ${msg?.recipient === u ? 'selected' : ''}>${u}</option>`).join('');
+            const modalHTML = `
+                <form id="message-form" data-id="${messageId || ''}" class="bg-white rounded-lg shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+                    <header class="p-4 border-b"><h2 class="text-xl font-semibold text-primary">${isEdit ? 'Bericht Bewerken' : 'Nieuw Bericht'}</h2></header>
+                    <main class="p-6 space-y-4 overflow-y-auto">
+                        <div><label class="block text-sm font-medium">Titel</label><input type="text" id="msg-title" class="mt-1 block w-full rounded-md" value="${msg?.title || ''}" required></div>
+                        <div><label class="block text-sm font-medium">Inhoud</label><textarea id="msg-content" rows="5" class="mt-1 block w-full rounded-md" required>${msg?.content || ''}</textarea></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium">Type</label><select id="msg-type" class="mt-1 block w-full rounded-md">${['Memo', 'Vraag', 'Mededeling', 'Belangrijk', 'Probleem'].map(t => `<option ${msg?.type === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+                            <div><label class="block text-sm font-medium">Prioriteit</label><select id="msg-priority" class="mt-1 block w-full rounded-md">${['Laag', 'Normaal', 'Hoog'].map(p => `<option ${msg?.priority === p ? 'selected' : ''}>${p}</option>`).join('')}</select></div>
+                        </div>
+                        <div><label class="block text-sm font-medium">Zichtbaarheid</label><select id="msg-visibility" class="mt-1 block w-full rounded-md"><option value="public" ${!msg?.isPrivate ? 'selected' : ''}>Voor Iedereen</option><option value="private" ${msg?.isPrivate ? 'selected' : ''}>Voor Specifiek Persoon</option></select></div>
+                        <div id="recipient-container" class="${!msg?.isPrivate ? 'hidden' : ''}"><label class="block text-sm font-medium">Ontvanger</label><select id="msg-recipient" class="mt-1 block w-full rounded-md">${userOptions}</select></div>
+                    </main>
+                    <footer class="bg-gray-50 p-4 flex justify-end items-center gap-4 rounded-b-lg shrink-0"><button type="button" class="btn-close-modal text-sm font-medium">Annuleren</button><button type="submit" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-5 rounded-lg">Opslaan</button></footer>
+                </form>`;
+            openModal(modalHTML);
+        }
+        
+        function renderMessageDetailModal(messageId) {
+            currentOpenMessageId = messageId;
+            const msg = allMessages.find(m => m.id === messageId);
+            if (!msg) { closeModal(); return; }
+            const canEdit = msg.author === currentUserDisplayName || currentUserDisplayName === 'Ine van Dort';
+            commentsUnsubscribe();
+            const commentsQuery = query(collection(db, `/artifacts/${appId}/public/data/messages/${messageId}/comments`));
+            commentsUnsubscribe = onSnapshot(commentsQuery, (snapshot) => {
+                let comments = snapshot.docs.map(d => d.data());
+                comments.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+                const commentsContainer = document.getElementById('comments-container');
+                if(commentsContainer) commentsContainer.innerHTML = comments.length ? comments.map(c => `<div class="bg-gray-100 p-3 rounded-md"><p class="text-sm">${c.content}</p><p class="text-xs text-gray-500 text-right mt-1">- ${c.author} op ${c.createdAt?.seconds ? new Date(c.createdAt.seconds * 1000).toLocaleString('nl-NL') : 'Zojuist'}</p></div>`).join('') : `<p class="text-sm text-gray-500 text-center py-4">Nog geen reacties.</p>`;
+            }, (error) => {
+                console.error("Fout in comments listener:", error);
+            });
+            const modalHTML = `
+                <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl flex flex-col max-h-[90vh]">
+                    <header class="p-4 border-b flex justify-between items-center"><h2 class="text-xl font-semibold text-primary">${msg.title}</h2><button class="btn-close-modal text-gray-400 hover:text-gray-700 text-2xl">&times;</button></header>
+                    <main class="p-6 flex-grow overflow-y-auto space-y-6">
+                        <div class="grid grid-cols-3 gap-4 text-sm"><div><strong>Auteur:</strong> ${msg.author}</div><div><strong>Datum:</strong> ${msg.createdAt?.seconds ? new Date(msg.createdAt.seconds * 1000).toLocaleDateString('nl-NL') : 'Zojuist'}</div><div><strong>Prioriteit:</strong> ${msg.priority}</div></div>
+                        <div class="whitespace-pre-wrap bg-subtle p-4 rounded-md border">${msg.content}</div>
+                        <div><h3 class="font-semibold mb-2">Status</h3><select id="msg-status-update" data-id="${msg.id}" class="rounded-md w-full md:w-1/3">${['Nieuw', 'In behandeling', 'Afgehandeld'].map(s => `<option ${msg.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+                        <div><h3 class="font-semibold mb-2">Reacties</h3><div id="comments-container" class="space-y-2 max-h-64 overflow-y-auto border rounded-md p-2 bg-gray-50"><p class="text-sm text-gray-500 text-center py-4">Reacties laden...</p></div><form id="comment-form" data-id="${msg.id}" class="mt-4 flex gap-2"><input type="text" id="comment-input" class="flex-grow rounded-md" placeholder="Schrijf een reactie..." required><button type="submit" class="bg-primary text-white px-4 py-2 rounded-md font-medium">Plaats</button></form></div>
+                    </main>
+                    ${canEdit ? `<footer class="bg-gray-50 p-4 flex justify-end items-center gap-4 rounded-b-lg"><button class="btn-delete-message bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg" data-id="${msg.id}">Verwijderen</button><button class="btn-edit-message bg-primary hover:bg-primary-dark text-white font-bold py-2 px-5 rounded-lg" data-id="${msg.id}">Bewerken</button></footer>` : ''}
+                </div>`;
+            openModal(modalHTML);
+        }
+
+        // --- PRIKBORD LOGICA ---
+        async function handleSaveMessage(e) {
+            e.preventDefault();
+            const form = e.target;
+            const messageId = form.dataset.id;
+            const isPrivate = document.getElementById('msg-visibility').value === 'private';
+            const recipient = isPrivate ? document.getElementById('msg-recipient').value : null;
+            if (isPrivate && !recipient) { showNotification('Selecteer een ontvanger.', 'error'); return; }
+            const messageData = {
+                title: document.getElementById('msg-title').value, content: document.getElementById('msg-content').value,
+                type: document.getElementById('msg-type').value, priority: document.getElementById('msg-priority').value,
+                isPrivate, recipient, author: currentUserDisplayName,
+                status: messageId ? allMessages.find(m => m.id === messageId).status : 'Nieuw', updatedAt: serverTimestamp()
+            };
+            try {
+                if (messageId) {
+                    await updateDoc(doc(db, `/artifacts/${appId}/public/data/messages`, messageId), messageData);
+                    showNotification('Bericht bijgewerkt!', 'success');
+                } else {
+                    messageData.createdAt = serverTimestamp();
+                    await addDoc(collection(db, `/artifacts/${appId}/public/data/messages`), messageData);
+                    showNotification('Bericht geplaatst!', 'success');
+                }
+                closeModal();
+            } catch (error) { console.error("Fout bij opslaan:", error); showNotification('Er is iets misgegaan.', 'error'); }
+        }
+
+        async function handleDeleteMessage(messageId) {
+            if (window.confirm('Weet je zeker dat je dit bericht en alle reacties permanent wilt verwijderen?')) {
+                try {
+                    await deleteDoc(doc(db, `/artifacts/${appId}/public/data/messages`, messageId));
+                    showNotification('Bericht verwijderd.', 'success');
+                    closeModal();
+                } catch (error) { console.error("Fout bij verwijderen:", error); showNotification('Verwijderen mislukt.', 'error'); }
+            }
+        }
+
+        async function handleAddComment(e) {
+            e.preventDefault();
+            const form = e.target, messageId = form.dataset.id, input = document.getElementById('comment-input'), content = input.value.trim();
+            if (content) {
+                try {
+                    await addDoc(collection(db, `/artifacts/${appId}/public/data/messages/${messageId}/comments`), { content, author: currentUserDisplayName, createdAt: serverTimestamp() });
+                    input.value = '';
+                } catch (error) { console.error("Fout bij plaatsen reactie:", error); showNotification('Kon reactie niet plaatsen.', 'error'); }
+            }
+        }
+
+        async function handleStatusUpdate(e) {
+            try {
+                await updateDoc(doc(db, `/artifacts/${appId}/public/data/messages`, e.target.dataset.id), { status: e.target.value });
+                showNotification('Status bijgewerkt.', 'success');
+            } catch (error) { console.error("Fout bij status update:", error); showNotification('Status updaten mislukt.', 'error'); }
+        }
+
+        // --- EVENT LISTENERS ---
+        function setupEventListeners() {
+            document.body.addEventListener('click', (e) => {
+                if (e.target.id === 'btn-go-to-prikbord') showPage('prikbord-page');
+                if (e.target.id === 'btn-go-to-derdengeld') {
+                    if (window.derdengeldApp) window.derdengeldApp.renderDashboard();
+                    showDerdengeldPage('derdengeld-dashboard-page');
+                }
+                if (e.target.id === 'btn-back-to-hub') showPage('hub-page');
+                if (e.target.closest('.btn-close-modal')) closeModal();
+                if (e.target.id === 'btn-new-message') renderNewMessageModal();
+                const viewBtn = e.target.closest('.btn-view-message'); if (viewBtn) renderMessageDetailModal(viewBtn.dataset.id);
+                const editBtn = e.target.closest('.btn-edit-message'); if (editBtn) renderNewMessageModal(editBtn.dataset.id);
+                const deleteBtn = e.target.closest('.btn-delete-message'); if (deleteBtn) handleDeleteMessage(deleteBtn.dataset.id);
+            });
+            document.body.addEventListener('submit', (e) => { if (e.target.id === 'message-form') handleSaveMessage(e); if (e.target.id === 'comment-form') handleAddComment(e); });
+            document.body.addEventListener('input', (e) => { if (['filter-search', 'filter-type', 'filter-user'].includes(e.target.id)) renderMessages(); });
+            document.body.addEventListener('change', (e) => { if (e.target.id === 'msg-visibility') document.getElementById('recipient-container').classList.toggle('hidden', e.target.value === 'public'); if (e.target.id === 'msg-status-update') handleStatusUpdate(e); });
+        }
+        
+        function showNotification(message, type = 'info') {
+            const el = document.getElementById('notification');
+            el.textContent = message; el.className = 'hidden';
+            el.classList.add(type === 'success' ? 'bg-green-600' : (type === 'error' ? 'bg-red-600' : 'bg-blue-600'));
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 3000);
+        }
+
+// --- START DEEL 2A --- PLAK DEZE VOLLEDIGE CODE OP DE AANGEGEVEN PLEK IN DEEL 1 ---
+
+function initializeDerdengeldApp() {
+    const container = document.getElementById('derdengeld-app-container');
+    container.innerHTML = `
+        <div id="derdengeld-offline-banner" class="hidden bg-yellow-500 text-white text-center p-2 font-semibold">Let op: App draait in offline demo-modus. Gegevens worden niet permanent opgeslagen.</div>
+        <div id="derdengeld-dashboard-page">
+            <div class="flex flex-col h-screen">
+                <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10">
+                    <div><h1 class="text-2xl font-bold text-primary">Derdengeld Verantwoording</h1><p class="text-sm text-gray-500">Dashboard</p></div>
+                    <div class="flex items-center gap-4">
+                        <button id="derdengeld-btn-back-to-hub" class="text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Hub</button>
+                        <button id="derdengeld-btn-go-to-reports" class="text-sm font-medium text-gray-600 hover:text-primary">Rapportage</button>
+                        <span id="derdengeld-user-welcome" class="text-sm font-medium">Welkom...</span>
+                        <button id="derdengeld-btn-go-to-new-form" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg shadow-sm"> + Nieuw Formulier </button>
+                    </div>
+                </header>
+                <main id="derdengeld-dashboard-grid" class="flex-grow p-4 md:p-6 lg:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto">
+                    <section class="flex flex-col"><h2 class="text-lg font-semibold mb-4 pb-2 border-b-2 border-yellow-500">Mijn Goedkeuringen</h2><div id="derdengeld-my-approvals-container" class="space-y-4 overflow-y-auto"><p class="text-sm text-gray-500">Geen openstaande verzoeken.</p></div></section>
+                    <section class="flex flex-col"><h2 class="text-lg font-semibold mb-4 pb-2 border-b-2 border-accent">Mijn Openstaande Taken</h2><div id="derdengeld-my-tasks-container" class="space-y-4 overflow-y-auto"><p class="text-sm text-gray-500">Taken worden geladen...</p></div></section>
+                    <section class="flex flex-col"><h2 class="text-lg font-semibold mb-4 pb-2 border-b-2 border-gray-300">Wachtend op Anderen</h2><div id="derdengeld-other-tasks-container" class="space-y-4 overflow-y-auto"><p class="text-sm text-gray-500">Taken worden geladen...</p></div></section>
+                    <section class="flex flex-col"><h2 class="text-lg font-semibold mb-4 pb-2 border-b-2 border-gray-300">Recente Activiteit</h2><div id="derdengeld-activity-feed-container" class="space-y-3 overflow-y-auto"><p class="text-sm text-gray-500">Nog geen activiteit.</p></div></section>
+                </main>
+            </div>
+        </div>
+        <div id="derdengeld-new-form-page" class="hidden">
+           <div class="flex flex-col min-h-screen">
+                <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10">
+                    <div><h1 class="text-2xl font-bold text-primary">Nieuwe Ontvangstbevestiging</h1><p class="text-sm text-gray-500">Vul de basisgegevens van de ontvangst in.</p></div>
+                    <a href="#" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Dashboard</a>
+                </header>
+                <main class="flex-grow p-4 md:p-6 lg:p-8 flex justify-center items-start">
+                    <form id="derdengeld-new-form-element" class="w-full max-w-4xl bg-white rounded-lg shadow-xl overflow-hidden">
+                        <section class="p-6 border-b"><h2 class="text-xl font-semibold mb-4 text-primary">Ontvangstgegevens</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label for="derdengeld-transactiedatum" class="block text-sm font-medium text-gray-700">Datum</label><input type="date" id="derdengeld-transactiedatum" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" required></div><div><label for="derdengeld-afkomstig-van" class="block text-sm font-medium text-gray-700">Afkomstig van</label><input type="text" id="derdengeld-afkomstig-van" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" placeholder="Naam betaler" required></div><div class="md:col-span-2"><label for="derdengeld-inzake" class="block text-sm font-medium text-gray-700">Inzake</label><input type="text" id="derdengeld-inzake" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" placeholder="Dossier / Cliënt" required></div><div><label for="derdengeld-derdenrekening" class="block text-sm font-medium text-gray-700">Derdenrekening (22.70.85.248)</label><div class="mt-1 relative"><div class="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center"><span class="text-gray-500 sm:text-sm">€</span></div><input type="number" id="derdengeld-derdenrekening" class="derdengeld-rekening-input block w-full rounded-md border-gray-300 pl-7 pr-12 sm:text-lg" step="0.01"></div></div><div><label for="derdengeld-kantoorrekening" class="block text-sm font-medium text-gray-700">Kantoorrekening (22.70.85.221)</label><div class="mt-1 relative"><div class="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center"><span class="text-gray-500 sm:text-sm">€</span></div><input type="number" id="derdengeld-kantoorrekening" class="derdengeld-rekening-input block w-full rounded-md border-gray-300 pl-7 pr-12 sm:text-lg" step="0.01"></div></div></div></section>
+                        <section class="p-6"><h2 class="text-xl font-semibold mb-4 text-primary">Taken Toewijzen</h2><div id="derdengeld-taken-lijst" class="space-y-4"><p id="derdengeld-taken-placeholder" class="text-sm text-gray-500 text-center">Nog geen taken toegewezen.</p></div><button type="button" id="derdengeld-btn-open-modal" class="mt-6 w-full flex justify-center items-center px-4 py-2 border border-dashed border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">+ Taak Toewijzen</button></section>
+                        <footer class="bg-gray-50 p-4 flex justify-end items-center gap-4"><button type="button" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-gray-900">Annuleren</button><button type="button" id="derdengeld-btn-save-form" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-5 rounded-lg shadow-sm">Opslaan en Versturen</button></footer>
+                    </form>
+                </main>
+            </div>
+        </div>
+        <div id="derdengeld-task-view-page" class="hidden">
+            <div class="flex flex-col min-h-screen">
+                <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10"><div><h1 id="derdengeld-task-view-title" class="text-2xl font-bold text-primary">Verantwoording Laden...</h1><p id="derdengeld-task-view-subtitle" class="text-sm text-gray-500">Aangemaakt door: ...</p></div><a href="#" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Dashboard</a></header>
+                <main class="flex-grow p-4 md:p-6 lg:p-8 flex justify-center items-start"><div class="w-full max-w-4xl bg-white rounded-lg shadow-xl overflow-hidden"><section id="derdengeld-task-view-header" class="p-6 bg-accent text-white"></section><section id="derdengeld-task-interaction-section" class="p-6 border-b"></section><section class="p-6 border-b bg-gray-50"><h2 class="text-xl font-semibold mb-4 text-gray-600">Hoofdgegevens (informatief)</h2><div id="derdengeld-task-view-main-data" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div></section><section class="p-6 bg-gray-50 border-b"><h2 class="text-xl font-semibold mb-4 text-gray-600">Communicatie & Geschiedenis</h2><div id="derdengeld-task-history-log" class="space-y-3 text-sm text-gray-600 max-h-64 overflow-y-auto"></div><div class="mt-4 flex gap-2"><input type="text" id="derdengeld-new-comment-input" class="flex-grow rounded-md border-gray-300 shadow-sm sm:text-sm" placeholder="Plaats een opmerking..."><button id="derdengeld-btn-add-comment" class="bg-primary text-white px-4 py-2 rounded-md font-medium">Plaats</button></div></section><footer id="derdengeld-task-view-footer" class="bg-gray-50 p-4 flex justify-end items-center gap-4"></footer></div></main>
+            </div>
+        </div>
+        <div id="derdengeld-report-page" class="hidden">
+            <div class="flex flex-col h-screen">
+                <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10"><div><h1 class="text-2xl font-bold text-primary">Rapportage</h1><p class="text-sm text-gray-500">Overzicht van alle formulieren</p></div><a href="#" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Dashboard</a></header>
+                <main class="flex-grow p-4 md:p-6 lg:p-8 overflow-y-auto"><div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"><div class="bg-white p-4 rounded-lg shadow"><p class="text-sm text-gray-500">Totaal Formulieren</p><p id="derdengeld-stats-total-forms" class="text-2xl font-bold">0</p></div><div class="bg-white p-4 rounded-lg shadow"><p class="text-sm text-gray-500">Totaal Open Taken</p><p id="derdengeld-stats-open-tasks" class="text-2xl font-bold text-yellow-600">0</p></div><div class="bg-white p-4 rounded-lg shadow"><p class="text-sm text-gray-500">Volledig Afgerond</p><p id="derdengeld-stats-completed-forms" class="text-2xl font-bold text-green-600">0</p></div></div><div class="bg-white rounded-lg shadow overflow-hidden"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inzake</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Totaalbedrag</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Open Taken</th></tr></thead><tbody id="derdengeld-report-table-body" class="bg-white divide-y divide-gray-200"></tbody></table></div></main>
+            </div>
+        </div>
+        <div id="derdengeld-add-task-modal" class="hidden fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg"><header class="p-4 border-b"><h2 class="text-xl font-semibold text-primary">Taak Toewijzen</h2></header><main class="p-6 space-y-4"><div><label for="derdengeld-modal-collega" class="block text-sm font-medium text-gray-700">Wijs toe aan collega:</label><select id="derdengeld-modal-collega" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></select></div><div><label for="derdengeld-modal-taak-type" class="block text-sm font-medium text-gray-700">Type taak:</label><select id="derdengeld-modal-taak-type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"><option value="verantwoording">Verantwoording Invullen</option><option value="doorbetaling">Doorbetaling Voorbereiden</option></select></div></main><footer class="bg-gray-50 p-4 flex justify-end items-center gap-4 rounded-b-lg"><button type="button" id="derdengeld-btn-close-modal" class="text-sm font-medium text-gray-600 hover:text-gray-900">Annuleren</button><button type="button" id="derdengeld-btn-add-task" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-5 rounded-lg shadow-sm">Taak Toewijzen</button></footer></div>
+        </div>
+    `;
+
+    let derdengeld_currentUserDisplayName = currentUserDisplayName;
+    let derdengeld_takenBuffer = [];
+    let derdengeld_activeTask = null;
+    let derdengeld_lastUsedDate = new Date().toISOString().split('T')[0];
+    let derdengeld_localDatabase = { forms: [], takeoverRequests: [], reopenRequests: [], activityLog: [] };
+
+    function derdengeld_init() {
+        const modalCollegaSelect = document.getElementById('derdengeld-modal-collega');
+        modalCollegaSelect.innerHTML = COLLEAGUES.map(c => `<option>${c}</option>`).join('');
+        document.getElementById('derdengeld-offline-banner').classList.remove('hidden');
+        document.getElementById('derdengeld-user-welcome').textContent = `Welkom, ${derdengeld_currentUserDisplayName}`;
+        derdengeld_renderDashboard();
+        derdengeld_setupEventListeners();
+    }
+    
+    function derdengeld_renderDashboard() {
+        const myTasksContainer = document.getElementById('derdengeld-my-tasks-container');
+        const otherTasksContainer = document.getElementById('derdengeld-other-tasks-container');
+        const activityContainer = document.getElementById('derdengeld-activity-feed-container');
+        const approvalsContainer = document.getElementById('derdengeld-my-approvals-container');
+
+        myTasksContainer.innerHTML = ''; otherTasksContainer.innerHTML = ''; activityContainer.innerHTML = ''; approvalsContainer.innerHTML = '';
+
+        const allTasks = derdengeld_localDatabase.forms.flatMap(form => (form.taken || []).map(taak => ({ ...taak, formId: form.id, formInzake: form.inzake, aangemaaktDoor: form.aangemaaktDoor, totaalbedrag: form.bedrag })));
+        const myOpenTasks = allTasks.filter(taak => taak.collega === derdengeld_currentUserDisplayName && taak.status === 'open');
+        const otherOpenTasks = allTasks.filter(taak => taak.collega !== derdengeld_currentUserDisplayName && taak.status === 'open');
+        
+        myTasksContainer.innerHTML = myOpenTasks.length ? myOpenTasks.map(t => derdengeld_createTaskCard(t, true)).join('') : '<p class="text-sm text-gray-500">Je hebt geen openstaande taken.</p>';
+        otherTasksContainer.innerHTML = otherOpenTasks.length ? otherOpenTasks.map(t => derdengeld_createTaskCard(t, false)).join('') : '<p class="text-sm text-gray-500">Er zijn geen andere openstaande taken.</p>';
+
+        const takeoverRequests = derdengeld_localDatabase.takeoverRequests.filter(req => {
+            const form = derdengeld_localDatabase.forms.find(f => f.id === req.formId);
+            return form && form.aangemaaktDoor === derdengeld_currentUserDisplayName && req.status === 'pending';
+        });
+        takeoverRequests.forEach(req => {
+            const form = derdengeld_localDatabase.forms.find(f => f.id === req.formId);
+            if (form) approvalsContainer.innerHTML += derdengeld_createTakeoverApprovalCard(req, form.inzake);
+        });
+
+        if (derdengeld_currentUserDisplayName === 'Ine van Dort') {
+            const reopenRequests = derdengeld_localDatabase.reopenRequests.filter(req => req.status === 'pending');
+            reopenRequests.forEach(req => {
+                const form = derdengeld_localDatabase.forms.find(f => f.id === req.formId);
+                if (form) approvalsContainer.innerHTML += derdengeld_createReopenApprovalCard(req, form.inzake);
+            });
+        }
+
+        if (approvalsContainer.innerHTML.trim() === '') approvalsContainer.innerHTML = '<p class="text-sm text-gray-500">Geen openstaande verzoeken.</p>';
+        
+        activityContainer.innerHTML = derdengeld_localDatabase.activityLog.length ? [...derdengeld_localDatabase.activityLog].reverse().slice(0, 5).map(derdengeld_createActivityItem).join('') : '<p class="text-sm text-gray-500">Nog geen activiteit.</p>';
+        updateHubWidgets();
+    }
+
+    function derdengeld_createTakeoverApprovalCard(req, inzake) { return `<div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-yellow-500"><h3 class="font-bold text-gray-800">Inzake: ${inzake}</h3><p class="text-sm mt-2"><span class="font-semibold">${req.requestedBy}</span> wil taak overnemen van <span class="font-semibold">${req.originalOwner}</span>.</p><div class="flex justify-end gap-2 mt-3"><button data-request-id="${req.id}" class="derdengeld-btn-reject-takeover text-xs font-bold py-1 px-3 rounded-lg bg-red-100 text-red-700 hover:bg-red-200">Afwijzen</button><button data-request-id="${req.id}" class="derdengeld-btn-approve-takeover text-xs font-bold py-1 px-3 rounded-lg bg-green-100 text-green-700 hover:bg-green-200">Goedkeuren</button></div></div>`; }
+    function derdengeld_createReopenApprovalCard(req, inzake) { return `<div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-blue-500"><h3 class="font-bold text-gray-800">Inzake: ${inzake}</h3><p class="text-sm mt-2"><span class="font-semibold">${req.requestedBy}</span> verzoekt om taak te heropenen.</p><div class="flex justify-end gap-2 mt-3"><button data-request-id="${req.id}" class="derdengeld-btn-reject-reopen text-xs font-bold py-1 px-3 rounded-lg bg-red-100 text-red-700 hover:bg-red-200">Afwijzen</button><button data-request-id="${req.id}" class="derdengeld-btn-approve-reopen text-xs font-bold py-1 px-3 rounded-lg bg-green-100 text-green-700 hover:bg-green-200">Goedkeuren</button></div></div>`; }
+    function derdengeld_createTaskCard(taak, isMine) { const borderColor = isMine ? 'border-accent' : 'border-gray-300'; const titleColor = isMine ? 'text-primary' : 'text-gray-700'; const taakNaam = taak.type === 'verantwoording' ? 'Verantwoording' : 'Doorbetaling'; return `<div class="bg-white p-4 rounded-lg shadow-md border-l-4 ${borderColor} cursor-pointer derdengeld-task-card" data-form-id="${taak.formId}" data-taak-id="${taak.id}"><h3 class="font-bold ${titleColor}">Inzake: ${taak.formInzake}</h3><p class="text-sm font-semibold mt-2">Taak: ${taakNaam} (€ ${taak.totaalbedrag.toFixed(2)})</p>${!isMine ? `<p class="text-sm mt-1">Wacht op: <span class="font-semibold">${taak.collega}</span></p>` : ''}</div>`; }
+    function derdengeld_createActivityItem(log) { const timestamp = new Date(log.timestamp).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); const isClickable = log.message.includes('heeft de taak afgerond'); const cursorClass = isClickable ? 'cursor-pointer hover:bg-gray-200' : ''; const dataAttributes = isClickable ? `data-form-id="${log.formId}" data-taak-id="${log.taakId}"` : ''; const itemClass = isClickable ? 'derdengeld-completed-task-item' : ''; return `<div class="text-sm p-3 bg-gray-100 rounded-md ${cursorClass} ${itemClass}" ${dataAttributes}><p>${log.message}</p><p class="text-xs text-gray-500 mt-1">${timestamp}</p></div>`; }
+    function derdengeld_renderTaken() { const container = document.getElementById('derdengeld-taken-lijst'); const placeholder = document.getElementById('derdengeld-taken-placeholder'); if (!container || !placeholder) return; container.querySelectorAll('.derdengeld-taak-item').forEach(el => el.remove()); if (derdengeld_takenBuffer.length === 0) { placeholder.classList.remove('hidden'); } else { placeholder.classList.add('hidden'); derdengeld_takenBuffer.forEach((taak, index) => { const taakElement = document.createElement('div'); taakElement.className = 'derdengeld-taak-item bg-subtle p-4 rounded-md border flex items-center justify-between'; const taakNaam = taak.type === 'verantwoording' ? 'Verantwoording' : 'Doorbetaling'; taakElement.innerHTML = `<div><p class="font-semibold">${taakNaam}</p><p class="text-sm text-gray-600">Toegewezen aan: <span class="font-medium">${taak.collega}</span></p></div><button type="button" data-index="${index}" class="derdengeld-btn-remove-task text-gray-400 hover:text-red-600 text-xl">&times;</button>`; container.appendChild(taakElement); }); } }
+    function derdengeld_findTask(formId, taakId) { const form = derdengeld_localDatabase.forms.find(f => f.id === formId); const taak = form ? (form.taken || []).find(t => t.id === taakId) : undefined; return { form, taak }; }
+    function derdengeld_renderReportPage() { const forms = derdengeld_localDatabase.forms; document.getElementById('derdengeld-stats-total-forms').textContent = forms.length; const allTasks = forms.flatMap(form => form.taken || []); const openTasks = allTasks.filter(t => t.status === 'open').length; document.getElementById('derdengeld-stats-open-tasks').textContent = openTasks; const completedForms = forms.filter(form => (form.taken || []).every(t => t.status === 'completed')).length; document.getElementById('derdengeld-stats-completed-forms').textContent = completedForms; const tableBody = document.getElementById('derdengeld-report-table-body'); tableBody.innerHTML = ''; if (forms.length === 0) { tableBody.innerHTML = `<tr><td colspan="4" class="text-center p-4 text-gray-500">Geen data om te tonen.</td></tr>`; return; } forms.forEach(form => { const openTasksCount = (form.taken || []).filter(t => t.status === 'open').length; const status = openTasksCount === 0 ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Voltooid</span>' : `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">In behandeling</span>`; const row = `<tr><td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${form.inzake || 'Geen omschrijving'}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">€ ${form.bedrag.toFixed(2)}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${status}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${openTasksCount}</td></tr>`; tableBody.innerHTML += row; }); }
+    
+    // --- EINDE DEEL 2A ---
+
+        function initializeDerdengeldApp() {
+            const container = document.getElementById('derdengeld-app-container');
+            container.innerHTML = `
+                <div id="derdengeld-offline-banner" class="hidden bg-yellow-500 text-white text-center p-2 font-semibold">Let op: App draait in offline demo-modus. Gegevens worden niet permanent opgeslagen.</div>
+                <div id="derdengeld-dashboard-page">
+                    <div class="flex flex-col h-screen">
+                        <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10">
+                            <div><h1 class="text-2xl font-bold text-primary">Derdengeld Verantwoording</h1><p class="text-sm text-gray-500">Dashboard</p></div>
+                            <div class="flex items-center gap-4">
+                                <button id="derdengeld-btn-back-to-hub" class="text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Hub</button>
+                                <button id="derdengeld-btn-go-to-reports" class="text-sm font-medium text-gray-600 hover:text-primary">Rapportage</button>
+                                <span id="derdengeld-user-welcome" class="text-sm font-medium">Welkom...</span>
+                                <button id="derdengeld-btn-go-to-new-form" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg shadow-sm"> + Nieuw Formulier </button>
+                            </div>
+                        </header>
+                        <main id="derdengeld-dashboard-grid" class="flex-grow p-4 md:p-6 lg:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto">
+                            <section class="flex flex-col"><h2 class="text-lg font-semibold mb-4 pb-2 border-b-2 border-yellow-500">Mijn Goedkeuringen</h2><div id="derdengeld-my-approvals-container" class="space-y-4 overflow-y-auto"><p class="text-sm text-gray-500">Geen openstaande verzoeken.</p></div></section>
+                            <section class="flex flex-col"><h2 class="text-lg font-semibold mb-4 pb-2 border-b-2 border-accent">Mijn Openstaande Taken</h2><div id="derdengeld-my-tasks-container" class="space-y-4 overflow-y-auto"><p class="text-sm text-gray-500">Taken worden geladen...</p></div></section>
+                            <section class="flex flex-col"><h2 class="text-lg font-semibold mb-4 pb-2 border-b-2 border-gray-300">Wachtend op Anderen</h2><div id="derdengeld-other-tasks-container" class="space-y-4 overflow-y-auto"><p class="text-sm text-gray-500">Taken worden geladen...</p></div></section>
+                            <section class="flex flex-col"><h2 class="text-lg font-semibold mb-4 pb-2 border-b-2 border-gray-300">Recente Activiteit</h2><div id="derdengeld-activity-feed-container" class="space-y-3 overflow-y-auto"><p class="text-sm text-gray-500">Nog geen activiteit.</p></div></section>
+                        </main>
+                    </div>
+                </div>
+                <div id="derdengeld-new-form-page" class="hidden">
+                   <div class="flex flex-col min-h-screen">
+                        <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10">
+                            <div><h1 class="text-2xl font-bold text-primary">Nieuwe Ontvangstbevestiging</h1><p class="text-sm text-gray-500">Vul de basisgegevens van de ontvangst in.</p></div>
+                            <a href="#" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Dashboard</a>
+                        </header>
+                        <main class="flex-grow p-4 md:p-6 lg:p-8 flex justify-center items-start">
+                            <form id="derdengeld-new-form-element" class="w-full max-w-4xl bg-white rounded-lg shadow-xl overflow-hidden">
+                                <section class="p-6 border-b"><h2 class="text-xl font-semibold mb-4 text-primary">Ontvangstgegevens</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label for="derdengeld-transactiedatum" class="block text-sm font-medium text-gray-700">Datum</label><input type="date" id="derdengeld-transactiedatum" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" required></div><div><label for="derdengeld-afkomstig-van" class="block text-sm font-medium text-gray-700">Afkomstig van</label><input type="text" id="derdengeld-afkomstig-van" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" placeholder="Naam betaler" required></div><div class="md:col-span-2"><label for="derdengeld-inzake" class="block text-sm font-medium text-gray-700">Inzake</label><input type="text" id="derdengeld-inzake" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" placeholder="Dossier / Cliënt" required></div><div><label for="derdengeld-derdenrekening" class="block text-sm font-medium text-gray-700">Derdenrekening (22.70.85.248)</label><div class="mt-1 relative"><div class="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center"><span class="text-gray-500 sm:text-sm">€</span></div><input type="number" id="derdengeld-derdenrekening" class="derdengeld-rekening-input block w-full rounded-md border-gray-300 pl-7 pr-12 sm:text-lg" step="0.01"></div></div><div><label for="derdengeld-kantoorrekening" class="block text-sm font-medium text-gray-700">Kantoorrekening (22.70.85.221)</label><div class="mt-1 relative"><div class="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center"><span class="text-gray-500 sm:text-sm">€</span></div><input type="number" id="derdengeld-kantoorrekening" class="derdengeld-rekening-input block w-full rounded-md border-gray-300 pl-7 pr-12 sm:text-lg" step="0.01"></div></div></div></section>
+                                <section class="p-6"><h2 class="text-xl font-semibold mb-4 text-primary">Taken Toewijzen</h2><div id="derdengeld-taken-lijst" class="space-y-4"><p id="derdengeld-taken-placeholder" class="text-sm text-gray-500 text-center">Nog geen taken toegewezen.</p></div><button type="button" id="derdengeld-btn-open-modal" class="mt-6 w-full flex justify-center items-center px-4 py-2 border border-dashed border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">+ Taak Toewijzen</button></section>
+                                <footer class="bg-gray-50 p-4 flex justify-end items-center gap-4"><button type="button" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-gray-900">Annuleren</button><button type="button" id="derdengeld-btn-save-form" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-5 rounded-lg shadow-sm">Opslaan en Versturen</button></footer>
+                            </form>
+                        </main>
+                    </div>
+                </div>
+                <div id="derdengeld-task-view-page" class="hidden">
+                    <div class="flex flex-col min-h-screen">
+                        <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10"><div><h1 id="derdengeld-task-view-title" class="text-2xl font-bold text-primary">Verantwoording Laden...</h1><p id="derdengeld-task-view-subtitle" class="text-sm text-gray-500">Aangemaakt door: ...</p></div><a href="#" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Dashboard</a></header>
+                        <main class="flex-grow p-4 md:p-6 lg:p-8 flex justify-center items-start"><div class="w-full max-w-4xl bg-white rounded-lg shadow-xl overflow-hidden"><section id="derdengeld-task-view-header" class="p-6 bg-accent text-white"></section><section id="derdengeld-task-interaction-section" class="p-6 border-b"></section><section class="p-6 border-b bg-gray-50"><h2 class="text-xl font-semibold mb-4 text-gray-600">Hoofdgegevens (informatief)</h2><div id="derdengeld-task-view-main-data" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div></section><section class="p-6 bg-gray-50 border-b"><h2 class="text-xl font-semibold mb-4 text-gray-600">Communicatie & Geschiedenis</h2><div id="derdengeld-task-history-log" class="space-y-3 text-sm text-gray-600 max-h-64 overflow-y-auto"></div><div class="mt-4 flex gap-2"><input type="text" id="derdengeld-new-comment-input" class="flex-grow rounded-md border-gray-300 shadow-sm sm:text-sm" placeholder="Plaats een opmerking..."><button id="derdengeld-btn-add-comment" class="bg-primary text-white px-4 py-2 rounded-md font-medium">Plaats</button></div></section><footer id="derdengeld-task-view-footer" class="bg-gray-50 p-4 flex justify-end items-center gap-4"></footer></div></main>
+                    </div>
+                </div>
+                <div id="derdengeld-report-page" class="hidden">
+                    <div class="flex flex-col h-screen">
+                        <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10"><div><h1 class="text-2xl font-bold text-primary">Rapportage</h1><p class="text-sm text-gray-500">Overzicht van alle formulieren</p></div><a href="#" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Dashboard</a></header>
+                        <main class="flex-grow p-4 md:p-6 lg:p-8 overflow-y-auto"><div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"><div class="bg-white p-4 rounded-lg shadow"><p class="text-sm text-gray-500">Totaal Formulieren</p><p id="derdengeld-stats-total-forms" class="text-2xl font-bold">0</p></div><div class="bg-white p-4 rounded-lg shadow"><p class="text-sm text-gray-500">Totaal Open Taken</p><p id="derdengeld-stats-open-tasks" class="text-2xl font-bold text-yellow-600">0</p></div><div class="bg-white p-4 rounded-lg shadow"><p class="text-sm text-gray-500">Volledig Afgerond</p><p id="derdengeld-stats-completed-forms" class="text-2xl font-bold text-green-600">0</p></div></div><div class="bg-white rounded-lg shadow overflow-hidden"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inzake</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Totaalbedrag</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Open Taken</th></tr></thead><tbody id="derdengeld-report-table-body" class="bg-white divide-y divide-gray-200"></tbody></table></div></main>
+                    </div>
+                </div>
+                <div id="derdengeld-add-task-modal" class="hidden fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 z-50">
+                    <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg"><header class="p-4 border-b"><h2 class="text-xl font-semibold text-primary">Taak Toewijzen</h2></header><main class="p-6 space-y-4"><div><label for="derdengeld-modal-collega" class="block text-sm font-medium text-gray-700">Wijs toe aan collega:</label><select id="derdengeld-modal-collega" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></select></div><div><label for="derdengeld-modal-taak-type" class="block text-sm font-medium text-gray-700">Type taak:</label><select id="derdengeld-modal-taak-type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"><option value="verantwoording">Verantwoording Invullen</option><option value="doorbetaling">Doorbetaling Voorbereiden</option></select></div></main><footer class="bg-gray-50 p-4 flex justify-end items-center gap-4 rounded-b-lg"><button type="button" id="derdengeld-btn-close-modal" class="text-sm font-medium text-gray-600 hover:text-gray-900">Annuleren</button><button type="button" id="derdengeld-btn-add-task" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-5 rounded-lg shadow-sm">Taak Toewijzen</button></footer></div>
+                </div>
+            `;
+
+            let derdengeld_currentUserDisplayName = currentUserDisplayName;
+            let derdengeld_takenBuffer = [];
+            let derdengeld_activeTask = null;
+            let derdengeld_lastUsedDate = new Date().toISOString().split('T')[0];
+            let derdengeld_localDatabase = { forms: [], takeoverRequests: [], reopenRequests: [], activityLog: [] };
+
+            function derdengeld_init() {
+                const modalCollegaSelect = document.getElementById('derdengeld-modal-collega');
+                modalCollegaSelect.innerHTML = COLLEAGUES.map(c => `<option>${c}</option>`).join('');
+                document.getElementById('derdengeld-offline-banner').classList.remove('hidden');
+                document.getElementById('derdengeld-user-welcome').textContent = `Welkom, ${derdengeld_currentUserDisplayName}`;
+                derdengeld_renderDashboard();
+                derdengeld_setupEventListeners();
+            }
+            
+            function derdengeld_renderDashboard() {
+                const myTasksContainer = document.getElementById('derdengeld-my-tasks-container');
+                const otherTasksContainer = document.getElementById('derdengeld-other-tasks-container');
+                const activityContainer = document.getElementById('derdengeld-activity-feed-container');
+                const approvalsContainer = document.getElementById('derdengeld-my-approvals-container');
+
+                myTasksContainer.innerHTML = ''; otherTasksContainer.innerHTML = ''; activityContainer.innerHTML = ''; approvalsContainer.innerHTML = '';
+
+                const allTasks = derdengeld_localDatabase.forms.flatMap(form => (form.taken || []).map(taak => ({ ...taak, formId: form.id, formInzake: form.inzake, aangemaaktDoor: form.aangemaaktDoor, totaalbedrag: form.bedrag })));
+                const myOpenTasks = allTasks.filter(taak => taak.collega === derdengeld_currentUserDisplayName && taak.status === 'open');
+                const otherOpenTasks = allTasks.filter(taak => taak.collega !== derdengeld_currentUserDisplayName && taak.status === 'open');
+                
+                myTasksContainer.innerHTML = myOpenTasks.length ? myOpenTasks.map(t => derdengeld_createTaskCard(t, true)).join('') : '<p class="text-sm text-gray-500">Je hebt geen openstaande taken.</p>';
+                otherTasksContainer.innerHTML = otherOpenTasks.length ? otherOpenTasks.map(t => derdengeld_createTaskCard(t, false)).join('') : '<p class="text-sm text-gray-500">Er zijn geen andere openstaande taken.</p>';
+
+                const takeoverRequests = derdengeld_localDatabase.takeoverRequests.filter(req => {
+                    const form = derdengeld_localDatabase.forms.find(f => f.id === req.formId);
+                    return form && form.aangemaaktDoor === derdengeld_currentUserDisplayName && req.status === 'pending';
+                });
+                takeoverRequests.forEach(req => {
+                    const form = derdengeld_localDatabase.forms.find(f => f.id === req.formId);
+                    if (form) approvalsContainer.innerHTML += derdengeld_createTakeoverApprovalCard(req, form.inzake);
+                });
+
+                if (derdengeld_currentUserDisplayName === 'Ine van Dort') {
+                    const reopenRequests = derdengeld_localDatabase.reopenRequests.filter(req => req.status === 'pending');
+                    reopenRequests.forEach(req => {
+                        const form = derdengeld_localDatabase.forms.find(f => f.id === req.formId);
+                        if (form) approvalsContainer.innerHTML += derdengeld_createReopenApprovalCard(req, form.inzake);
+                    });
+                }
+
+                if (approvalsContainer.innerHTML.trim() === '') approvalsContainer.innerHTML = '<p class="text-sm text-gray-500">Geen openstaande verzoeken.</p>';
+                
+                activityContainer.innerHTML = derdengeld_localDatabase.activityLog.length ? [...derdengeld_localDatabase.activityLog].reverse().slice(0, 5).map(derdengeld_createActivityItem).join('') : '<p class="text-sm text-gray-500">Nog geen activiteit.</p>';
+                updateHubWidgets();
+            }
+
+            function derdengeld_createTakeoverApprovalCard(req, inzake) { return `<div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-yellow-500"><h3 class="font-bold text-gray-800">Inzake: ${inzake}</h3><p class="text-sm mt-2"><span class="font-semibold">${req.requestedBy}</span> wil taak overnemen van <span class="font-semibold">${req.originalOwner}</span>.</p><div class="flex justify-end gap-2 mt-3"><button data-request-id="${req.id}" class="derdengeld-btn-reject-takeover text-xs font-bold py-1 px-3 rounded-lg bg-red-100 text-red-700 hover:bg-red-200">Afwijzen</button><button data-request-id="${req.id}" class="derdengeld-btn-approve-takeover text-xs font-bold py-1 px-3 rounded-lg bg-green-100 text-green-700 hover:bg-green-200">Goedkeuren</button></div></div>`; }
+            function derdengeld_createReopenApprovalCard(req, inzake) { return `<div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-blue-500"><h3 class="font-bold text-gray-800">Inzake: ${inzake}</h3><p class="text-sm mt-2"><span class="font-semibold">${req.requestedBy}</span> verzoekt om taak te heropenen.</p><div class="flex justify-end gap-2 mt-3"><button data-request-id="${req.id}" class="derdengeld-btn-reject-reopen text-xs font-bold py-1 px-3 rounded-lg bg-red-100 text-red-700 hover:bg-red-200">Afwijzen</button><button data-request-id="${req.id}" class="derdengeld-btn-approve-reopen text-xs font-bold py-1 px-3 rounded-lg bg-green-100 text-green-700 hover:bg-green-200">Goedkeuren</button></div></div>`; }
+            function derdengeld_createTaskCard(taak, isMine) { const borderColor = isMine ? 'border-accent' : 'border-gray-300'; const titleColor = isMine ? 'text-primary' : 'text-gray-700'; const taakNaam = taak.type === 'verantwoording' ? 'Verantwoording' : 'Doorbetaling'; return `<div class="bg-white p-4 rounded-lg shadow-md border-l-4 ${borderColor} cursor-pointer derdengeld-task-card" data-form-id="${taak.formId}" data-taak-id="${taak.id}"><h3 class="font-bold ${titleColor}">Inzake: ${taak.formInzake}</h3><p class="text-sm font-semibold mt-2">Taak: ${taakNaam} (€ ${taak.totaalbedrag.toFixed(2)})</p>${!isMine ? `<p class="text-sm mt-1">Wacht op: <span class="font-semibold">${taak.collega}</span></p>` : ''}</div>`; }
+            function derdengeld_createActivityItem(log) { const timestamp = new Date(log.timestamp).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); const isClickable = log.message.includes('heeft de taak afgerond'); const cursorClass = isClickable ? 'cursor-pointer hover:bg-gray-200' : ''; const dataAttributes = isClickable ? `data-form-id="${log.formId}" data-taak-id="${log.taakId}"` : ''; const itemClass = isClickable ? 'derdengeld-completed-task-item' : ''; return `<div class="text-sm p-3 bg-gray-100 rounded-md ${cursorClass} ${itemClass}" ${dataAttributes}><p>${log.message}</p><p class="text-xs text-gray-500 mt-1">${timestamp}</p></div>`; }
+            function derdengeld_renderTaken() { const container = document.getElementById('derdengeld-taken-lijst'); const placeholder = document.getElementById('derdengeld-taken-placeholder'); if (!container || !placeholder) return; container.querySelectorAll('.derdengeld-taak-item').forEach(el => el.remove()); if (derdengeld_takenBuffer.length === 0) { placeholder.classList.remove('hidden'); } else { placeholder.classList.add('hidden'); derdengeld_takenBuffer.forEach((taak, index) => { const taakElement = document.createElement('div'); taakElement.className = 'derdengeld-taak-item bg-subtle p-4 rounded-md border flex items-center justify-between'; const taakNaam = taak.type === 'verantwoording' ? 'Verantwoording' : 'Doorbetaling'; taakElement.innerHTML = `<div><p class="font-semibold">${taakNaam}</p><p class="text-sm text-gray-600">Toegewezen aan: <span class="font-medium">${taak.collega}</span></p></div><button type="button" data-index="${index}" class="derdengeld-btn-remove-task text-gray-400 hover:text-red-600 text-xl">&times;</button>`; container.appendChild(taakElement); }); } }
+            function derdengeld_findTask(formId, taakId) { const form = derdengeld_localDatabase.forms.find(f => f.id === formId); const taak = form ? (form.taken || []).find(t => t.id === taakId) : undefined; return { form, taak }; }
+            function derdengeld_renderReportPage() { const forms = derdengeld_localDatabase.forms; document.getElementById('derdengeld-stats-total-forms').textContent = forms.length; const allTasks = forms.flatMap(form => form.taken || []); const openTasks = allTasks.filter(t => t.status === 'open').length; document.getElementById('derdengeld-stats-open-tasks').textContent = openTasks; const completedForms = forms.filter(form => (form.taken || []).every(t => t.status === 'completed')).length; document.getElementById('derdengeld-stats-completed-forms').textContent = completedForms; const tableBody = document.getElementById('derdengeld-report-table-body'); tableBody.innerHTML = ''; if (forms.length === 0) { tableBody.innerHTML = `<tr><td colspan="4" class="text-center p-4 text-gray-500">Geen data om te tonen.</td></tr>`; return; } forms.forEach(form => { const openTasksCount = (form.taken || []).filter(t => t.status === 'open').length; const status = openTasksCount === 0 ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Voltooid</span>' : `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">In behandeling</span>`; const row = `<tr><td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${form.inzake || 'Geen omschrijving'}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">€ ${form.bedrag.toFixed(2)}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${status}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${openTasksCount}</td></tr>`; tableBody.innerHTML += row; }); }
+            function derdengeld_populateTaskView(form, taak) { derdengeld_activeTask = { formId: form.id, taakId: taak.id, originalAmount: form.bedrag }; document.getElementById('derdengeld-task-view-title').textContent = `Inzake: ${form.inzake}`; document.getElementById('derdengeld-task-view-subtitle').textContent = `Aangemaakt door: ${form.aangemaaktDoor}`; const header = document.getElementById('derdengeld-task-view-header'); const taakNaam = taak.type === 'verantwoording' ? 'Verantwoording' : 'Doorbetaling'; header.innerHTML = `<h2 class="text-2xl font-bold">Taak: ${taakNaam}</h2><p class="mt-1">Totaalbedrag: <strong>€ ${form.bedrag.toFixed(2)}</strong>.</p>`; const mainData = document.getElementById('derdengeld-task-view-main-data'); mainData.innerHTML = `<div><label class="block text-sm font-medium text-gray-700">Afkomstig van</label><input type="text" value="${form.afkomstigVan}" class="mt-1 block w-full rounded-md readonly-input" readonly></div><div><label class="block text-sm font-medium text-gray-700">Datum van transactie</label><input type="text" value="${form.datum}" class="mt-1 block w-full rounded-md readonly-input" readonly></div>`; const interactionSection = document.getElementById('derdengeld-task-interaction-section'); interactionSection.innerHTML = `<div class="space-y-6"><div><h3 class="text-lg font-semibold mb-2">Verantwoording (Declaraties)</h3><div id="derdengeld-declaratie-regels" class="space-y-2"></div><div class="flex gap-4 mt-2"><button id="derdengeld-btn-add-declaratie" class="text-sm text-primary font-medium hover:underline">+ Declaratieregel</button><button id="derdengeld-btn-add-credit" class="text-sm text-primary font-medium hover:underline">+ Creditdeclaratieregel</button></div><div class="text-right font-bold mt-2">Subtotaal: € <span id="derdengeld-verantwoording-subtotaal">0.00</span></div></div><hr><div><h3 class="text-lg font-semibold mb-2">Doorbetalingen</h3><div id="derdengeld-doorbetaling-regels" class="space-y-4"></div><button id="derdengeld-btn-add-doorbetaling" class="text-sm text-primary font-medium hover:underline mt-2">+ Doorbetaling</button><div class="text-right font-bold mt-2">Totaal: € <span id="derdengeld-doorbetaling-totaal">0.00</span></div></div><hr><div class="text-right font-bold text-lg mt-2">Balans: <span id="derdengeld-balans-totaal" class="px-2 py-1 rounded">€ 0.00</span></div></div>`; const footer = document.getElementById('derdengeld-task-view-footer'); const hasPendingTakeover = derdengeld_localDatabase.takeoverRequests.some(r => r.taakId === taak.id && r.status === 'pending'); const hasPendingReopen = derdengeld_localDatabase.reopenRequests.some(r => r.taakId === taak.id && r.status === 'pending'); if (taak.status === 'completed') { if (hasPendingReopen) { footer.innerHTML = `<button disabled class="bg-gray-400 text-white font-bold py-2 px-5 rounded-lg shadow-sm cursor-not-allowed">Heropening Aangevraagd</button>`; } else { footer.innerHTML = `<button id="derdengeld-btn-request-reopen" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-5 rounded-lg shadow-sm">Heropening Aanvragen</button>`; } interactionSection.classList.add('disabled-section'); } else if (taak.collega === derdengeld_currentUserDisplayName) { footer.innerHTML = `<button id="derdengeld-btn-complete-task" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-5 rounded-lg shadow-sm">Taak Afronden</button>`; interactionSection.classList.remove('disabled-section'); } else { if (hasPendingTakeover) { footer.innerHTML = `<button disabled class="bg-gray-400 text-white font-bold py-2 px-5 rounded-lg shadow-sm cursor-not-allowed">Verzoek Ingediend</button>`; } else { footer.innerHTML = `<button id="derdengeld-btn-request-takeover" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-5 rounded-lg shadow-sm">Overname Aanvragen</button>`; } interactionSection.classList.add('disabled-section'); } const historyLog = document.getElementById('derdengeld-task-history-log'); historyLog.innerHTML = ''; if (form.history && form.history.length > 0) { [...form.history].reverse().forEach(log => { const timestamp = new Date(log.timestamp).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); historyLog.innerHTML += `<div class="p-2 border-b border-gray-200"><div>${log.message}</div><div class="text-xs text-gray-500 text-right">${timestamp}</div></div>`; }); } else { historyLog.innerHTML = '<p class="text-gray-500">Geen geschiedenis voor dit formulier.</p>'; } derdengeld_renderExistingDetails(form); }
+            function derdengeld_addDeclaratieRow(declaratie = null, isCredit = false) { const container = document.getElementById('derdengeld-declaratie-regels'); const div = document.createElement('div'); div.className = 'derdengeld-detail-row derdengeld-declaratie-row grid grid-cols-12 gap-x-2 items-start'; div.dataset.isCredit = isCredit; const omschrijving = declaratie ? declaratie.omschrijving : ''; const bedrag = declaratie ? Math.abs(declaratie.bedrag) : ''; const fileName = declaratie ? declaratie.fileName : ''; div.innerHTML = `<div class="col-span-5"><input type="text" class="derdengeld-omschrijving-input mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" value="${omschrijving}" placeholder="${isCredit ? 'Creditdeclaratienummer' : 'Declaratienummer'}"></div><div class="col-span-3 relative"><div class="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center"><span class="text-gray-500 sm:text-sm">${isCredit ? '- €' : '€'}</span></div><input type="number" class="derdengeld-bedrag-input mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm pl-8" value="${bedrag}" step="0.01" placeholder="0.00"></div><div class="col-span-3"><button type="button" class="derdengeld-btn-upload-file mt-1 w-full text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 py-2 px-3 rounded-md shadow-sm border border-gray-300">Bestand kiezen</button><input type="file" class="derdengeld-file-input hidden"><span class="derdengeld-file-name-display text-xs text-gray-500 mt-1 truncate block">${fileName || ''}</span></div><div class="col-span-1 text-right"><button type="button" class="derdengeld-btn-remove-row text-gray-400 hover:text-red-600 text-2xl mt-1">&times;</button></div>`; container.appendChild(div); derdengeld_updateTotals(); }
+            function derdengeld_addDoorbetalingRow(doorbetaling = null) { const container = document.getElementById('derdengeld-doorbetaling-regels'); const div = document.createElement('div'); div.className = 'derdengeld-detail-row derdengeld-doorbetaling-row bg-gray-50 p-4 rounded-lg border relative'; const naam = doorbetaling ? doorbetaling.naam : ''; const iban = doorbetaling ? doorbetaling.iban : ''; const omschrijving = doorbetaling ? doorbetaling.omschrijving : ''; const bic = doorbetaling ? doorbetaling.bic : ''; const bedrag = doorbetaling ? doorbetaling.bedrag : ''; const spoed = doorbetaling ? doorbetaling.spoed : false; const fileName = doorbetaling ? doorbetaling.fileName : ''; div.innerHTML = `<button type="button" class="derdengeld-btn-remove-row absolute top-2 right-3 text-gray-400 hover:text-red-600 text-2xl">&times;</button><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-xs font-medium text-gray-600">Naam</label><input type="text" class="derdengeld-naam-input mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" value="${naam}"></div><div><label class="block text-xs font-medium text-gray-600">IBAN</label><input type="text" class="derdengeld-iban-input mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" value="${iban}"></div><div class="md:col-span-2"><label class="block text-xs font-medium text-gray-600">Omschrijving</label><input type="text" class="derdengeld-omschrijving-input mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" value="${omschrijving}"></div><div><label class="block text-xs font-medium text-gray-600">BIC (optioneel)</label><input type="text" class="derdengeld-bic-input mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" value="${bic}"></div><div><label class="block text-xs font-medium text-gray-600">Bedrag</label><div class="relative"><div class="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center"><span class="text-gray-500 sm:text-sm">€</span></div><input type="number" class="derdengeld-bedrag-input mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm pl-7" value="${bedrag}" step="0.01" placeholder="0.00"></div></div><div class="md:col-span-2"><label class="block text-xs font-medium text-gray-600">Bijlage</label><button type="button" class="derdengeld-btn-upload-file mt-1 w-full text-sm text-gray-700 bg-white hover:bg-gray-50 py-2 px-3 rounded-md shadow-sm border border-gray-300">Bestand kiezen</button><input type="file" class="derdengeld-file-input hidden"><span class="derdengeld-file-name-display text-xs text-gray-500 mt-1 truncate block">${fileName || ''}</span></div></div><div class="mt-4"><label class="flex items-center"><input type="checkbox" class="derdengeld-spoed-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" ${spoed ? 'checked' : ''}><span class="ml-2 text-sm text-gray-700">Kosten voor spoedopdracht meenemen? (+ €6.00)</span></label></div>`; container.appendChild(div); derdengeld_updateTotals(); }
+            function derdengeld_renderExistingDetails(form) { if (form.declaraties) { form.declaraties.forEach(d => derdengeld_addDeclaratieRow(d, d.bedrag < 0)); } if (form.doorbetalingen) { form.doorbetalingen.forEach(d => derdengeld_addDoorbetalingRow(d)); } derdengeld_updateTotals(); }
+            function derdengeld_updateTotals() { let declaratieTotaal = 0; document.querySelectorAll('.derdengeld-declaratie-row').forEach(row => { const bedragInput = row.querySelector('.derdengeld-bedrag-input'); let bedrag = parseFloat(bedragInput.value) || 0; if (row.dataset.isCredit === 'true') { declaratieTotaal -= bedrag; } else { declaratieTotaal += bedrag; } }); document.getElementById('derdengeld-verantwoording-subtotaal').textContent = declaratieTotaal.toFixed(2); let doorbetalingTotaal = 0; document.querySelectorAll('.derdengeld-doorbetaling-row').forEach(row => { let bedrag = parseFloat(row.querySelector('.derdengeld-bedrag-input').value) || 0; if (row.querySelector('.derdengeld-spoed-checkbox').checked) { bedrag += 6.00; } doorbetalingTotaal += bedrag; }); document.getElementById('derdengeld-doorbetaling-totaal').textContent = doorbetalingTotaal.toFixed(2); if (!derdengeld_activeTask) return; const balans = derdengeld_activeTask.originalAmount - declaratieTotaal - doorbetalingTotaal; const balansEl = document.getElementById('derdengeld-balans-totaal'); balansEl.textContent = `€ ${balans.toFixed(2)}`; if (Math.abs(balans) < 0.01) { balansEl.className = 'px-2 py-1 rounded bg-green-100 text-green-800'; } else { balansEl.className = 'px-2 py-1 rounded bg-red-100 text-red-800'; } }
+            function derdengeld_saveTaskDetails(form) { form.declaraties = []; document.querySelectorAll('.derdengeld-declaratie-row').forEach(row => { const omschrijving = row.querySelector('.derdengeld-omschrijving-input').value.trim(); let bedrag = parseFloat(row.querySelector('.derdengeld-bedrag-input').value) || 0; if (row.dataset.isCredit === 'true') { bedrag = -bedrag; } if (omschrijving && bedrag !== 0) { form.declaraties.push({ omschrijving, bedrag, fileName: row.querySelector('.derdengeld-file-name-display').textContent || null }); } }); form.doorbetalingen = []; document.querySelectorAll('.derdengeld-doorbetaling-row').forEach(row => { const bedrag = parseFloat(row.querySelector('.derdengeld-bedrag-input').value) || 0; const naam = row.querySelector('.derdengeld-naam-input').value.trim(); if (naam && bedrag > 0) { form.doorbetalingen.push({ naam: naam, iban: row.querySelector('.derdengeld-iban-input').value.trim(), omschrijving: row.querySelector('.derdengeld-omschrijving-input').value.trim(), bic: row.querySelector('.derdengeld-bic-input').value.trim(), bedrag: bedrag, spoed: row.querySelector('.derdengeld-spoed-checkbox').checked, fileName: row.querySelector('.derdengeld-file-name-display').textContent || null }); } }); derdengeld_logEvent(form.id, derdengeld_activeTask.taakId, `<span class="font-semibold">${derdengeld_currentUserDisplayName}</span> heeft de details van de taak bijgewerkt.`); }
+            function derdengeld_validateTaskDetails() { document.querySelectorAll('.invalid-input').forEach(el => el.classList.remove('invalid-input')); const declaratieRows = document.querySelectorAll('.derdengeld-declaratie-row'); const doorbetalingRows = document.querySelectorAll('.derdengeld-doorbetaling-row'); if (declaratieRows.length === 0 && doorbetalingRows.length === 0) { showNotification('Voeg minimaal één declaratie- of doorbetalingsregel toe.', 'error'); return false; } let isValid = true; declaratieRows.forEach((row) => { const omschrijvingInput = row.querySelector('.derdengeld-omschrijving-input'); const bedragInput = row.querySelector('.derdengeld-bedrag-input'); if (!omschrijvingInput.value.trim()) { omschrijvingInput.classList.add('invalid-input'); isValid = false; } if (!bedragInput.value || parseFloat(bedragInput.value) <= 0) { bedragInput.classList.add('invalid-input'); isValid = false; } }); doorbetalingRows.forEach((row) => { const naamInput = row.querySelector('.derdengeld-naam-input'); const ibanInput = row.querySelector('.derdengeld-iban-input'); const omschrijvingInput = row.querySelector('.derdengeld-omschrijving-input'); const bedragInput = row.querySelector('.derdengeld-bedrag-input'); if (!naamInput.value.trim()) { naamInput.classList.add('invalid-input'); isValid = false; } if (!ibanInput.value.trim()) { ibanInput.classList.add('invalid-input'); isValid = false; } if (!omschrijvingInput.value.trim()) { omschrijvingInput.classList.add('invalid-input'); isValid = false; } if (!bedragInput.value || parseFloat(bedragInput.value) <= 0) { bedragInput.classList.add('invalid-input'); isValid = false; } }); if (!isValid) { showNotification('Vul alle verplichte velden in (gemarkeerd in rood).', 'error'); } return isValid; }
+            function derdengeld_saveNewForm() { const form = { id: `form_${Date.now()}`, datum: document.getElementById('derdengeld-transactiedatum').value, afkomstigVan: document.getElementById('derdengeld-afkomstig-van').value, inzake: document.getElementById('derdengeld-inzake').value, rekeningType: document.getElementById('derdengeld-derdenrekening').value ? 'derden' : 'kantoor', bedrag: parseFloat(document.getElementById('derdengeld-derdenrekening').value || document.getElementById('derdengeld-kantoorrekening').value) || 0, aangemaaktDoor: derdengeld_currentUserDisplayName, taken: derdengeld_takenBuffer, history: [], declaraties: [], doorbetalingen: [] }; if (!form.datum || !form.afkomstigVan || !form.inzake || !form.bedrag || form.taken.length === 0) { showNotification('Vul alle verplichte velden in en wijs minimaal één taak toe.', 'error'); return; } derdengeld_lastUsedDate = form.datum; derdengeld_localDatabase.forms.push(form); derdengeld_logEvent(form.id, null, `<span class="font-semibold">${derdengeld_currentUserDisplayName}</span> heeft een nieuwe ontvangstbevestiging aangemaakt.`); showNotification('Formulier succesvol aangemaakt!', 'success'); derdengeld_resetAndShowPage('derdengeld-dashboard-page'); }
+            function derdengeld_addTask() { const collega = document.getElementById('derdengeld-modal-collega').value; const type = document.getElementById('derdengeld-modal-taak-type').value; if (!collega || !type) { showNotification('Selecteer een collega en een type taak.', 'error'); return; } derdengeld_takenBuffer.push({ id: `taak_${Date.now()}_${Math.random()}`, collega, type, status: 'open' }); derdengeld_renderTaken(); document.getElementById('derdengeld-add-task-modal').classList.add('hidden'); }
+            function derdengeld_resetNewForm() { const form = document.getElementById('derdengeld-new-form-element'); if (form) form.reset(); derdengeld_takenBuffer = []; derdengeld_renderTaken(); }
+            function derdengeld_logEvent(formId, taakId, message, type = 'generic') { const form = derdengeld_localDatabase.forms.find(f => f.id === formId); const timestamp = new Date(); if (form) { if (!form.history) form.history = []; form.history.push({message, timestamp}); } derdengeld_localDatabase.activityLog.push({ message, formId, taakId, type, timestamp }); }
+            function derdengeld_resetAndShowPage(pageId) { derdengeld_resetNewForm(); showDerdengeldPage(pageId); }
+            function derdengeld_setupEventListeners() {
+                document.body.addEventListener('click', function(e) {
+                    if (e.target.id === 'derdengeld-btn-go-to-new-form') { const dateInput = document.getElementById('derdengeld-transactiedatum'); if(dateInput) dateInput.value = derdengeld_lastUsedDate; showDerdengeldPage('derdengeld-new-form-page'); }
+                    if (e.target.id === 'derdengeld-btn-go-to-reports') { derdengeld_renderReportPage(); showDerdengeldPage('derdengeld-report-page'); }
+                    if (e.target.closest('.derdengeld-btn-back-to-dashboard')) { e.preventDefault(); derdengeld_resetAndShowPage('derdengeld-dashboard-page'); }
+                    if (e.target.id === 'derdengeld-btn-back-to-hub') { e.preventDefault(); showPage('hub-page'); }
+                    if (e.target.id === 'derdengeld-btn-save-form') derdengeld_saveNewForm();
+                    if (e.target.id === 'derdengeld-btn-open-modal') document.getElementById('derdengeld-add-task-modal').classList.remove('hidden');
+                    if (e.target.id === 'derdengeld-btn-close-modal') document.getElementById('derdengeld-add-task-modal').classList.add('hidden');
+                    if (e.target.id === 'derdengeld-btn-add-task') derdengeld_addTask();
+                    const taskCard = e.target.closest('.derdengeld-task-card, .derdengeld-completed-task-item'); if (taskCard) { const { form, taak } = derdengeld_findTask(taskCard.dataset.formId, taskCard.dataset.taakId); if (form && taak) { derdengeld_populateTaskView(form, taak); showDerdengeldPage('derdengeld-task-view-page'); } }
+                    if (e.target.id === 'derdengeld-btn-add-comment') { const input = document.getElementById('derdengeld-new-comment-input'); if (input && input.value.trim() && derdengeld_activeTask) { const { form } = derdengeld_findTask(derdengeld_activeTask.formId, derdengeld_activeTask.taakId); const message = `<span class="font-semibold">${derdengeld_currentUserDisplayName}:</span> ${input.value.trim()}`; derdengeld_logEvent(form.id, derdengeld_activeTask.taakId, message, 'comment'); derdengeld_populateTaskView(form, derdengeld_findTask(derdengeld_activeTask.formId, derdengeld_activeTask.taakId).taak); input.value = ''; } }
+                    if (e.target.id === 'derdengeld-btn-complete-task') { if (!derdengeld_activeTask) return; if (derdengeld_validateTaskDetails()) { const { form, taak } = derdengeld_findTask(derdengeld_activeTask.formId, derdengeld_activeTask.taakId); if (taak) { derdengeld_saveTaskDetails(form); taak.status = 'completed'; derdengeld_logEvent(form.id, taak.id, `<span class="font-semibold">${derdengeld_currentUserDisplayName}</span> heeft de taak afgerond.`); derdengeld_resetAndShowPage('derdengeld-dashboard-page'); } } }
+                    if (e.target.id === 'derdengeld-btn-request-takeover') { if (!derdengeld_activeTask) return; const { form, taak } = derdengeld_findTask(derdengeld_activeTask.formId, derdengeld_activeTask.taakId); if (form && taak) { const newRequest = { id: `req_${Date.now()}`, formId: form.id, taakId: taak.id, requestedBy: derdengeld_currentUserDisplayName, originalOwner: taak.collega, requestedAt: new Date(), status: 'pending' }; derdengeld_localDatabase.takeoverRequests.push(newRequest); derdengeld_logEvent(form.id, taak.id, `<span class="font-semibold">${derdengeld_currentUserDisplayName}</span> heeft verzocht de taak over te nemen van <span class="font-semibold">${taak.collega}</span>.`); showNotification('Overnameverzoek verzonden.', 'success'); derdengeld_populateTaskView(form, taak); } }
+                    const approveBtn = e.target.closest('.derdengeld-btn-approve-takeover'); if (approveBtn) { const request = derdengeld_localDatabase.takeoverRequests.find(r => r.id === approveBtn.dataset.requestId); if (request) { const { form, taak } = derdengeld_findTask(request.formId, request.taakId); if (form && taak) { taak.collega = request.requestedBy; request.status = 'approved'; derdengeld_logEvent(form.id, taak.id, `Overnameverzoek goedgekeurd. Taak is nu toegewezen aan <span class="font-semibold">${request.requestedBy}</span>.`); showNotification('Verzoek goedgekeurd.', 'success'); derdengeld_renderDashboard(); } } }
+                    const rejectBtn = e.target.closest('.derdengeld-btn-reject-takeover'); if (rejectBtn) { const request = derdengeld_localDatabase.takeoverRequests.find(r => r.id === rejectBtn.dataset.requestId); if (request) { request.status = 'rejected'; const { form, taak } = derdengeld_findTask(request.formId, request.taakId); derdengeld_logEvent(form.id, taak.id, `Overnameverzoek afgewezen.`); showNotification('Verzoek afgewezen.', 'info'); derdengeld_renderDashboard(); } }
+                    if (e.target.id === 'derdengeld-btn-request-reopen') { if (!derdengeld_activeTask) return; const { form, taak } = derdengeld_findTask(derdengeld_activeTask.formId, derdengeld_activeTask.taakId); if (form && taak) { const newRequest = { id: `req_reopen_${Date.now()}`, formId: form.id, taakId: taak.id, requestedBy: derdengeld_currentUserDisplayName, requestedAt: new Date(), status: 'pending' }; derdengeld_localDatabase.reopenRequests.push(newRequest); derdengeld_logEvent(form.id, taak.id, `<span class="font-semibold">${derdengeld_currentUserDisplayName}</span> heeft verzocht de taak te heropenen.`); showNotification('Verzoek tot heropening verzonden.', 'success'); derdengeld_populateTaskView(form, taak); } }
+                    const approveReopenBtn = e.target.closest('.derdengeld-btn-approve-reopen'); if (approveReopenBtn) { const request = derdengeld_localDatabase.reopenRequests.find(r => r.id === approveReopenBtn.dataset.requestId); if (request) { const { form, taak } = derdengeld_findTask(request.formId, request.taakId); if (form && taak) { taak.status = 'open'; request.status = 'approved'; derdengeld_logEvent(form.id, taak.id, `Verzoek tot heropening goedgekeurd door <span class="font-semibold">${derdengeld_currentUserDisplayName}</span>.`); showNotification('Taak heropend.', 'success'); derdengeld_renderDashboard(); } } }
+                    const rejectReopenBtn = e.target.closest('.derdengeld-btn-reject-reopen'); if (rejectReopenBtn) { const request = derdengeld_localDatabase.reopenRequests.find(r => r.id === rejectReopenBtn.dataset.requestId); if (request) { request.status = 'rejected'; const { form, taak } = derdengeld_findTask(request.formId, request.taakId); derdengeld_logEvent(form.id, taak.id, `Verzoek tot heropening afgewezen.`); showNotification('Verzoek afgewezen.', 'info'); derdengeld_renderDashboard(); } }
+                    const removeBtn = e.target.closest('.derdengeld-btn-remove-task'); if (removeBtn) { derdengeld_takenBuffer.splice(removeBtn.dataset.index, 1); derdengeld_renderTaken(); }
+                    if (e.target.id === 'derdengeld-btn-add-declaratie') derdengeld_addDeclaratieRow(null, false);
+                    if (e.target.id === 'derdengeld-btn-add-credit') derdengeld_addDeclaratieRow(null, true);
+                    if (e.target.id === 'derdengeld-btn-add-doorbetaling') derdengeld_addDoorbetalingRow();
+                    if (e.target.closest('.derdengeld-btn-remove-row')) { e.target.closest('.derdengeld-detail-row').remove(); derdengeld_updateTotals(); }
+                    const uploadBtn = e.target.closest('.derdengeld-btn-upload-file'); if (uploadBtn) { uploadBtn.nextElementSibling.click(); }
+                });
+                document.querySelectorAll('.derdengeld-rekening-input').forEach(input => { input.addEventListener('input', (e) => { if (e.target.value) { document.querySelectorAll('.derdengeld-rekening-input').forEach(otherInput => { if (otherInput !== e.target) { otherInput.value = ''; } }); } }); });
+                container.addEventListener('input', (e) => { if (e.target.closest('#derdengeld-task-interaction-section')) { if (e.target.classList.contains('derdengeld-bedrag-input') || e.target.classList.contains('derdengeld-spoed-checkbox')) { derdengeld_updateTotals(); } } });
+                container.addEventListener('change', (e) => { if (e.target.classList.contains('derdengeld-file-input')) { const fileNameDisplay = e.target.nextElementSibling; if (e.target.files.length > 0) { fileNameDisplay.textContent = e.target.files[0].name; } else { fileNameDisplay.textContent = ''; } } });
+            }
+
+            window.derdengeldApp = {
+                setCurrentUser: (name) => { derdengeld_currentUserDisplayName = name; document.getElementById('derdengeld-user-welcome').textContent = `Welkom, ${name}`; derdengeld_renderDashboard(); },
+                getStats: () => { const allTasks = derdengeld_localDatabase.forms.flatMap(form => form.taken || []); const myOpenTasks = allTasks.filter(taak => taak.collega === derdengeld_currentUserDisplayName && taak.status === 'open').length; const myApprovals = derdengeld_localDatabase.takeoverRequests.filter(req => { const form = derdengeld_localDatabase.forms.find(f => f.id === req.formId); return form && form.aangemaaktDoor === derdengeld_currentUserDisplayName && req.status === 'pending'; }).length + derdengeld_localDatabase.reopenRequests.filter(req => derdengeld_currentUserDisplayName === 'Ine van Dort' && req.status === 'pending').length; return { approvals: myApprovals, myTasks: myOpenTasks }; },
+                renderDashboard: derdengeld_renderDashboard
+            };
+
+            derdengeld_init();
+        }
+
+    </script>
+</body>
+</html>
