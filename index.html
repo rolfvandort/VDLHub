@@ -55,7 +55,7 @@
                         <select id="user-selector" class="text-sm font-bold border-gray-300 rounded-md shadow-sm"></select>
                     </div>
                 </header>
-                <main class="flex-grow p-4 md:p-6 lg:p-8 flex items-center justify-center">
+                <main class="flex-grow p-4 md:p-6 lg:p-8 flex flex-col items-center justify-center">
                     <div class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div class="bg-white p-6 rounded-lg shadow-xl flex flex-col">
                             <h2 class="text-xl font-bold text-primary mb-4">Team Prikbord</h2>
@@ -70,23 +70,33 @@
                             <h2 class="text-xl font-bold text-primary mb-4">Derdengeld Verantwoording</h2>
                             <p class="text-gray-600 mb-6 flex-grow">Beheer en verantwoord de derdengelden.</p>
                              <div class="space-y-3 mb-6">
-                                <div class="flex justify-between items-center"><span class="font-medium">Mijn Goedkeuringen:</span><span id="hub-derdengeld-approvals" class="bg-yellow-100 text-yellow-800 font-bold px-3 py-1 rounded-full">0</span></div>
-                                <div class="flex justify-between items-center"><span class="font-medium">Mijn Openstaande Taken:</span><span id="hub-derdengeld-tasks" class="bg-accent text-white font-bold px-3 py-1 rounded-full">0</span></div>
+                                 <div class="flex justify-between items-center"><span class="font-medium">Mijn Goedkeuringen:</span><span id="hub-derdengeld-approvals" class="bg-yellow-100 text-yellow-800 font-bold px-3 py-1 rounded-full">0</span></div>
+                                 <div class="flex justify-between items-center"><span class="font-medium">Mijn Openstaande Taken:</span><span id="hub-derdengeld-tasks" class="bg-accent text-white font-bold px-3 py-1 rounded-full">0</span></div>
                             </div>
                             <button id="btn-go-to-derdengeld" class="mt-auto w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-lg shadow-sm">Open Derdengeld App &rarr;</button>
                         </div>
                     </div>
+                    
+                    <div class="w-full max-w-5xl mt-8">
+                        <div class="bg-white p-6 rounded-lg shadow-xl">
+                            <h2 class="text-xl font-bold text-primary mb-4 border-b pb-2">Aanwezigheid Team</h2>
+                            <div id="presence-container" class="flex flex-wrap gap-x-8 gap-y-4">
+                                </div>
+                        </div>
+                    </div>
+
                 </main>
             </div>
         </div>
+    </div>
 
-        <div id="prikbord-page" class="hidden">
-            </div>
+    <div id="prikbord-page" class="hidden">
+        </div>
 
-        <div id="derdengeld-app-container" class="hidden">
-            </div>
+    <div id="derdengeld-app-container" class="hidden">
+        </div>
 
-    </div> <div id="notification" class="hidden"></div>
+    <div id="notification" class="hidden"></div>
     <div id="modal-container"></div>
 
     <script type="module">
@@ -99,6 +109,10 @@
     // Statische gebruikerslijst, de "single source of truth"
     const COLLEAGUES = ['Werknemer 1', 'Werknemer 2', 'Werknemer 3', 'Ine van Dort'];
     let currentUserDisplayName = COLLEAGUES[3]; // Standaard Ine
+    
+    // *** START NIEUWE CODE - STAP 2.1 ***
+    let presenceData = {};
+    // *** EINDE NIEUWE CODE ***
 
     // Firebase & Prikbord staat
     const appId = 'demo-app-id'; // Aangepast voor lokaal gebruik
@@ -109,9 +123,71 @@
     let commentsUnsubscribe = () => {};
     let currentOpenMessageId = null;
 
+    // *** START NIEUWE CODE - STAP 2.2 ***
+    /**
+     * Initialiseert de aanwezigheidsdata met willekeurige statussen.
+     * De actieve gebruiker is altijd aanwezig bij de start.
+     */
+    function initializePresence() {
+        const now = Date.now();
+        const fiveMinutesAgo = now - (6 * 60 * 1000); // 6 minuten om zeker te zijn
+
+        COLLEAGUES.forEach(colleague => {
+            if (colleague === currentUserDisplayName) {
+                presenceData[colleague] = now; // Actieve gebruiker is altijd aanwezig
+            } else {
+                // Willekeurig aanwezig (nu) of afwezig (lang geleden)
+                presenceData[colleague] = Math.random() > 0.5 ? now : fiveMinutesAgo;
+            }
+        });
+    }
+
+    /**
+     * Update de 'laatst gezien' tijdstempel van de huidige gebruiker naar nu.
+     */
+    function updateCurrentUserPresence() {
+        if (currentUserDisplayName) {
+            presenceData[currentUserDisplayName] = Date.now();
+            renderPresenceWidget();
+        }
+    }
+
+    /**
+     * Rendert de aanwezigheidswidget op basis van de 'laatst gezien' data.
+     */
+    function renderPresenceWidget() {
+        const container = document.getElementById('presence-container');
+        if (!container) return;
+
+        const threshold = Date.now() - (5 * 60 * 1000); // 5 minuten
+        let htmlContent = '';
+
+        COLLEAGUES.forEach(colleague => {
+            const lastSeen = presenceData[colleague] || 0;
+            const isPresent = lastSeen >= threshold;
+
+            const statusClass = isPresent ? 'bg-green-500' : 'bg-gray-400';
+            const textClass = isPresent ? 'text-gray-800' : 'text-gray-500';
+
+            htmlContent += `
+                <div class="flex items-center gap-2">
+                    <span class="h-3 w-3 rounded-full ${statusClass}"></span>
+                    <span class="${textClass}">${colleague}</span>
+                </div>
+            `;
+        });
+
+        container.innerHTML = htmlContent;
+    }
+    // *** EINDE NIEUWE CODE ***
+
     // --- INITIALISATIE VAN DE APP ---
     document.addEventListener('DOMContentLoaded', async () => {
         setupUserSelector();
+
+        // *** START NIEUWE CODE - STAP 2.3 ***
+        initializePresence();
+        // *** EINDE NIEUWE CODE ***
         
         // Firebase-initiatie wordt overgeslagen, we tonen een demo-melding
         showNotification("App draait in lokale demo-modus.", "info");
@@ -119,6 +195,10 @@
         initializeDerdengeldApp();
         setupEventListeners();
         showPage('hub-page');
+
+        // *** START NIEUWE CODE - STAP 2.3 ***
+        setInterval(renderPresenceWidget, 60 * 1000); // Ververs elke minuut
+        // *** EINDE NIEUWE CODE ***
     });
 
     function setupUserSelector() {
@@ -129,6 +209,9 @@
             if (window.derdengeldApp) window.derdengeldApp.setCurrentUser(currentUserDisplayName);
             updateHubWidgets();
             if (document.getElementById('prikbord-page').style.display !== 'none') renderPrikbord();
+            // *** START NIEUWE CODE - STAP 2.3 ***
+            updateCurrentUserPresence();
+            // *** EINDE NIEUWE CODE ***
         });
     }
     
@@ -143,7 +226,12 @@
         allPages.forEach(p => document.getElementById(p)?.classList.add('hidden'));
         document.getElementById(pageId)?.classList.remove('hidden');
         if (pageId === 'prikbord-page') renderPrikbord();
-        if (pageId === 'hub-page') updateHubWidgets();
+        if (pageId === 'hub-page') {
+            updateHubWidgets();
+            // *** START NIEUWE CODE - STAP 2.3 ***
+            renderPresenceWidget();
+            // *** EINDE NIEUWE CODE ***
+        }
     }
 
     function showDerdengeldPage(pageId) {
@@ -290,10 +378,6 @@
         openModal(modalHTML);
     }
     
-    // --- ================================== ---
-    // --- HIER IS DE BELANGRIJKSTE WIJZIGING ---
-    // --- ================================== ---
-
     // --- PRIKBORD LOGICA (LOKALE VERSIE) ---
     function handleSaveMessage(e) {
         e.preventDefault();
