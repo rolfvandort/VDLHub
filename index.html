@@ -46,9 +46,12 @@
         <div id="hub-page">
             <div class="flex flex-col min-h-screen">
                 <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10">
-                    <div>
-                        <h1 class="text-2xl font-bold text-primary">Van Dort Letselschade Hub</h1>
-                        <p class="text-sm text-gray-500">Uw centrale startpunt</p>
+                    <div class="flex items-center">
+                        <img src="https://i.postimg.cc/B690tTpb/temp-Image8-Bf-XYq.avif" alt="Van Dort Letselschade Logo" class="h-12 mr-4">
+                        <div>
+                            <h1 class="text-2xl font-bold text-primary">Kantoor Hub</h1>
+                            <p class="text-sm text-gray-500">Uw centrale startpunt</p>
+                        </div>
                     </div>
                     <div class="flex items-center gap-4">
                         <span class="text-sm font-medium">Ingelogd als:</span>
@@ -134,8 +137,8 @@
     } = window.firebase;
 
     // Statische gebruikerslijst, de "single source of truth"
-    const COLLEAGUES = ['Werknemer 1', 'Werknemer 2', 'Werknemer 3', 'Ine van Dort'];
-    let currentUserDisplayName = COLLEAGUES[3]; // Standaard Ine
+    const COLLEAGUES = ['Lesley', 'Lilian', 'Myriam', 'Aaijvie', 'Jamie-Lee', 'Ine van Dort'];
+    let currentUserDisplayName = COLLEAGUES[5]; // Standaard Ine
     
     let presenceData = {};
 
@@ -246,16 +249,100 @@
     });
 
     function initializeDemoData() {
-        const now = Math.floor(Date.now() / 1000);
-        allDeadlines = [
-            { id: `dl_${Date.now()}`, title: 'Medisch advies opvragen dossier Jansen', createdBy: 'Ine van Dort', assignedTo: 'Werknemer 1', dueDate: '2025-09-15', status: 'open' },
-            { id: `dl_${Date.now()+1}`, title: 'Concept dagvaarding sturen naar cliënt Pietersen', createdBy: 'Werknemer 2', assignedTo: 'Ine van Dort', dueDate: '2025-09-10', status: 'open' },
-            { id: `dl_${Date.now()+2}`, title: 'Declaratie verzekeraar controleren', createdBy: 'Ine van Dort', assignedTo: 'Werknemer 3', dueDate: '2025-08-20', status: 'completed' }
+        const now = new Date();
+        const seconds = (date) => Math.floor(date.getTime() / 1000);
+        const day = 24 * 60 * 60 * 1000;
+
+        // --- Prikbord Data ---
+        allMessages = [
+            {
+                id: 'msg_1',
+                author: 'Lilian',
+                title: 'Nieuwe jurisprudentie whiplash',
+                content: 'Team, zie deze belangrijke uitspraak. Met name relevant voor de dossiers Janssen en Pietersen. @Ine van Dort graag jouw visie hierop.',
+                type: 'Belangrijk',
+                priority: 'Hoog',
+                isPrivate: false,
+                recipients: [],
+                createdAt: { seconds: seconds(new Date(now - 1 * day)) },
+                readBy: ['Lilian', 'Ine van Dort', 'Myriam'],
+                comments: [
+                    { author: 'Ine van Dort', content: 'Dank @Lilian, ik kijk hier vanmiddag direct naar en koppel terug.', createdAt: { seconds: seconds(new Date(now - 1 * day + 3600000)) } },
+                    { author: 'Myriam', content: 'Goed punt, dit kan de strategie beïnvloeden.', createdAt: { seconds: seconds(new Date(now - 1 * day + 7200000)) } },
+                ]
+            },
+            {
+                id: 'msg_2',
+                author: 'Myriam',
+                title: 'Probleem met printer op de 2e etage',
+                content: 'De printer (HP LaserJet) geeft continu een papierstoring. IT is gebeld, maar voor nu graag printen op de 1e. Excuses voor het ongemak.',
+                type: 'Probleem',
+                priority: 'Normaal',
+                isPrivate: false,
+                recipients: [],
+                createdAt: { seconds: seconds(new Date(now - 2 * day)) },
+                readBy: ['Lilian', 'Ine van Dort', 'Myriam', 'Aaijvie', 'Jamie-Lee', 'Lesley'],
+                comments: []
+            },
+            {
+                id: 'msg_3',
+                author: 'Ine van Dort',
+                title: 'Vrijdagmiddagborrel',
+                content: 'Aanstaande vrijdag vanaf 16:30 is er weer een borrel om de week af te sluiten. Hopelijk is iedereen erbij!',
+                type: 'Mededeling',
+                priority: 'Laag',
+                isPrivate: false,
+                recipients: [],
+                createdAt: { seconds: seconds(new Date(now - 3 * day)) },
+                readBy: ['Lilian', 'Ine van Dort', 'Myriam', 'Aaijvie', 'Jamie-Lee', 'Lesley'],
+                comments: []
+            },
+            {
+                id: 'msg_4',
+                author: 'Jamie-Lee',
+                title: 'Vraag over declaratie dossier De Wit',
+                content: 'Hoi @Lesley, zou jij met mij mee kunnen kijken naar de laatste declaratie in het dossier van De Wit? Ik kom er niet helemaal uit. Dank!',
+                type: 'Vraag',
+                priority: 'Normaal',
+                isPrivate: true,
+                recipients: ['Lesley'],
+                createdAt: { seconds: seconds(new Date(now - 10 * 60 * 1000)) }, // 10 minuten geleden
+                readBy: ['Jamie-Lee'],
+                comments: []
+            },
+            {
+                id: 'msg_5',
+                author: 'Aaijvie',
+                title: 'Feedback op conceptbrief',
+                content: 'Hoi @Ine van Dort, zou je feedback kunnen geven op de conceptbrief voor de verzekeraar in dossier Yilmaz? Hij staat klaar in de conceptenmap.',
+                type: 'Vraag',
+                priority: 'Hoog',
+                isPrivate: true,
+                recipients: ['Ine van Dort'],
+                createdAt: { seconds: seconds(new Date(now - 2 * 3600000)) }, // 2 uur geleden
+                readBy: ['Aaijvie'],
+                comments: []
+            }
         ];
+
+        // --- Deadlines Data ---
+        const formatDate = (date) => date.toISOString().split('T')[0];
+        allDeadlines = [
+            { id: `dl_1`, title: 'Medisch advies opvragen dossier Visser', createdBy: 'Ine van Dort', assignedTo: 'Lesley', dueDate: formatDate(new Date(now.getTime() + 5 * day)), status: 'open' },
+            { id: `dl_2`, title: 'Reactie op verweer verzekeraar (dossier Bakker)', createdBy: 'Lilian', assignedTo: 'Ine van Dort', dueDate: formatDate(new Date(now.getTime() + 2 * day)), status: 'open' },
+            { id: `dl_3`, title: 'Declaratie verzekeraar controleren', createdBy: 'Ine van Dort', assignedTo: 'Myriam', dueDate: formatDate(new Date(now.getTime() - 10 * day)), status: 'completed' },
+            { id: `dl_4`, title: 'Concept dagvaarding afronden (Pietersen)', createdBy: 'Lesley', assignedTo: 'Aaijvie', dueDate: formatDate(new Date(now.getTime() - 1 * day)), status: 'open' }, // Verlopen!
+            { id: `dl_5`, title: 'Clientgesprek voorbereiden (Smit)', createdBy: 'Myriam', assignedTo: 'Jamie-Lee', dueDate: formatDate(new Date(now.getTime() + 1 * day)), status: 'open' },
+            { id: `dl_6`, title: 'Archiveren dossier De Boer', createdBy: 'Ine van Dort', assignedTo: 'Lilian', dueDate: formatDate(new Date(now.getTime() - 5 * day)), status: 'completed' }
+        ];
+
+        // --- Standaard Documenten Data ---
         standardDocuments = [
-            { id: `doc_${Date.now()}`, title: 'Intakeformulier Nieuwe Cliënt', description: 'Standaardformulier voor het eerste gesprek met een nieuwe cliënt.' },
-            { id: `doc_${Date.now()+1}`, title: 'Machtigingsformulier Medische Gegevens', description: 'AVG-proof machtiging voor het opvragen van medische informatie.' },
-            { id: `doc_${Date.now()+2}`, title: 'Concept Vaststellingsovereenkomst', description: 'Basistemplate voor een vaststellingsovereenkomst (VSO).' }
+            { id: `doc_1`, title: 'Intakeformulier Nieuwe Cliënt', description: 'Standaardformulier voor het eerste gesprek met een nieuwe cliënt.' },
+            { id: `doc_2`, title: 'Machtigingsformulier Medische Gegevens', description: 'AVG-proof machtiging voor het opvragen van medische informatie.' },
+            { id: `doc_3`, title: 'Concept Vaststellingsovereenkomst', description: 'Basistemplate voor een vaststellingsovereenkomst (VSO).' },
+            { id: `doc_4`, title: 'Onkosten declaratieformulier', description: 'Formulier voor het declareren van gemaakte onkosten.' },
+            { id: `doc_5`, title: 'Handleiding telefooncentrale', description: 'Korte handleiding voor het doorverbinden en in de wacht zetten.' }
         ];
     }
     
@@ -396,7 +483,10 @@
         container.innerHTML = `
             <div class="flex flex-col h-screen">
                 <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10 shrink-0">
-                    <div><h1 class="text-2xl font-bold text-primary">Team Prikbord</h1><p class="text-sm text-gray-500">Mededelingen, vragen en memo's</p></div>
+                    <div class="flex items-center">
+                        <img src="https://i.postimg.cc/B690tTpb/temp-Image8-Bf-XYq.avif" alt="Van Dort Letselschade Logo" class="h-12 mr-4">
+                        <div><h1 class="text-2xl font-bold text-primary">Team Prikbord</h1><p class="text-sm text-gray-500">Mededelingen, vragen en memo's</p></div>
+                    </div>
                     <div class="flex items-center gap-4">
                         <button class="btn-back-to-hub text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Hub</button>
                         <button id="btn-new-message" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg shadow-sm">+ Nieuw Bericht</button>
@@ -623,7 +713,10 @@
         container.innerHTML = `
             <div class="flex flex-col h-screen">
                 <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10 shrink-0">
-                    <div><h1 class="text-2xl font-bold text-primary">Deadlines Beheren</h1><p class="text-sm text-gray-500">Overzicht van alle deadlines</p></div>
+                    <div class="flex items-center">
+                        <img src="https://i.postimg.cc/B690tTpb/temp-Image8-Bf-XYq.avif" alt="Van Dort Letselschade Logo" class="h-12 mr-4">
+                        <div><h1 class="text-2xl font-bold text-primary">Deadlines Beheren</h1><p class="text-sm text-gray-500">Overzicht van alle deadlines</p></div>
+                    </div>
                     <div class="flex items-center gap-4">
                         <button class="btn-back-to-hub text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Hub</button>
                         <button id="btn-new-deadline" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg shadow-sm">+ Nieuwe Deadline</button>
@@ -760,7 +853,10 @@
         container.innerHTML = `
             <div class="flex flex-col h-screen">
                 <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10 shrink-0">
-                    <div><h1 class="text-2xl font-bold text-primary">Standaard Documenten</h1><p class="text-sm text-gray-500">Centrale bibliotheek voor formulieren en templates</p></div>
+                    <div class="flex items-center">
+                        <img src="https://i.postimg.cc/B690tTpb/temp-Image8-Bf-XYq.avif" alt="Van Dort Letselschade Logo" class="h-12 mr-4">
+                        <div><h1 class="text-2xl font-bold text-primary">Standaard Documenten</h1><p class="text-sm text-gray-500">Centrale bibliotheek voor formulieren en templates</p></div>
+                    </div>
                     <div class="flex items-center gap-4">
                         <button class="btn-back-to-hub text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Hub</button>
                         ${canManage ? `<button id="btn-new-doc" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg shadow-sm">+ Nieuw Document</button>`: ''}
@@ -887,7 +983,7 @@
         setTimeout(() => el.classList.add('hidden'), 3000);
     }
     
-    // De DerdengeldApp code blijft ongewijzigd
+    // De DerdengeldApp code blijft ongewijzigd, met uitzondering van de headers
     function initializeDerdengeldApp() {
         const container = document.getElementById('derdengeld-app-container');
         container.innerHTML = `
@@ -895,7 +991,10 @@
             <div id="derdengeld-dashboard-page">
                 <div class="flex flex-col h-screen">
                     <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10">
-                        <div><h1 class="text-2xl font-bold text-primary">Derdengeld Verantwoording</h1><p class="text-sm text-gray-500">Dashboard</p></div>
+                        <div class="flex items-center">
+                            <img src="https://i.postimg.cc/B690tTpb/temp-Image8-Bf-XYq.avif" alt="Van Dort Letselschade Logo" class="h-12 mr-4">
+                            <div><h1 class="text-2xl font-bold text-primary">Derdengeld Verantwoording</h1><p class="text-sm text-gray-500">Dashboard</p></div>
+                        </div>
                         <div class="flex items-center gap-4">
                             <button class="derdengeld-btn-back-to-hub btn-back-to-hub text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Hub</button>
                             <button id="derdengeld-btn-go-to-reports" class="text-sm font-medium text-gray-600 hover:text-primary">Rapportage</button>
@@ -914,7 +1013,10 @@
             <div id="derdengeld-new-form-page" class="hidden">
                <div class="flex flex-col min-h-screen">
                     <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10">
-                        <div><h1 class="text-2xl font-bold text-primary">Nieuwe Ontvangstbevestiging</h1><p class="text-sm text-gray-500">Vul de basisgegevens van de ontvangst in.</p></div>
+                        <div class="flex items-center">
+                           <img src="https://i.postimg.cc/B690tTpb/temp-Image8-Bf-XYq.avif" alt="Van Dort Letselschade Logo" class="h-12 mr-4">
+                            <div><h1 class="text-2xl font-bold text-primary">Nieuwe Ontvangstbevestiging</h1><p class="text-sm text-gray-500">Vul de basisgegevens van de ontvangst in.</p></div>
+                        </div>
                         <a href="#" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Dashboard</a>
                     </header>
                     <main class="flex-grow p-4 md:p-6 lg:p-8 flex justify-center items-start">
@@ -928,13 +1030,25 @@
             </div>
             <div id="derdengeld-task-view-page" class="hidden">
                 <div class="flex flex-col min-h-screen">
-                    <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10"><div><h1 id="derdengeld-task-view-title" class="text-2xl font-bold text-primary">Verantwoording Laden...</h1><p id="derdengeld-task-view-subtitle" class="text-sm text-gray-500">Aangemaakt door: ...</p></div><a href="#" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Dashboard</a></header>
+                    <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10">
+                        <div class="flex items-center">
+                            <img src="https://i.postimg.cc/B690tTpb/temp-Image8-Bf-XYq.avif" alt="Van Dort Letselschade Logo" class="h-12 mr-4">
+                            <div><h1 id="derdengeld-task-view-title" class="text-2xl font-bold text-primary">Verantwoording Laden...</h1><p id="derdengeld-task-view-subtitle" class="text-sm text-gray-500">Aangemaakt door: ...</p></div>
+                        </div>
+                        <a href="#" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Dashboard</a>
+                    </header>
                     <main class="flex-grow p-4 md:p-6 lg:p-8 flex justify-center items-start"><div class="w-full max-w-4xl bg-white rounded-lg shadow-xl overflow-hidden"><section id="derdengeld-task-view-header" class="p-6 bg-accent text-white"></section><section id="derdengeld-task-interaction-section" class="p-6 border-b"></section><section class="p-6 border-b bg-gray-50"><h2 class="text-xl font-semibold mb-4 text-gray-600">Hoofdgegevens (informatief)</h2><div id="derdengeld-task-view-main-data" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div></section><section class="p-6 bg-gray-50 border-b"><h2 class="text-xl font-semibold mb-4 text-gray-600">Communicatie & Geschiedenis</h2><div id="derdengeld-task-history-log" class="space-y-3 text-sm text-gray-600 max-h-64 overflow-y-auto"></div><div class="mt-4 flex gap-2"><input type="text" id="derdengeld-new-comment-input" class="flex-grow rounded-md border-gray-300 shadow-sm sm:text-sm" placeholder="Plaats een opmerking..."><button id="derdengeld-btn-add-comment" class="bg-primary text-white px-4 py-2 rounded-md font-medium">Plaats</button></div></section><footer id="derdengeld-task-view-footer" class="bg-gray-50 p-4 flex justify-end items-center gap-4"></footer></div></main>
                 </div>
             </div>
             <div id="derdengeld-report-page" class="hidden">
                 <div class="flex flex-col h-screen">
-                    <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10"><div><h1 class="text-2xl font-bold text-primary">Rapportage</h1><p class="text-sm text-gray-500">Overzicht van alle formulieren</p></div><a href="#" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Dashboard</a></header>
+                    <header class="bg-white shadow-md w-full p-4 flex justify-between items-center z-10">
+                        <div class="flex items-center">
+                            <img src="https://i.postimg.cc/B690tTpb/temp-Image8-Bf-XYq.avif" alt="Van Dort Letselschade Logo" class="h-12 mr-4">
+                            <div><h1 class="text-2xl font-bold text-primary">Rapportage</h1><p class="text-sm text-gray-500">Overzicht van alle formulieren</p></div>
+                        </div>
+                        <a href="#" class="derdengeld-btn-back-to-dashboard text-sm font-medium text-gray-600 hover:text-primary">&larr; Terug naar Dashboard</a>
+                    </header>
                     <main class="flex-grow p-4 md:p-6 lg:p-8 overflow-y-auto"><div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"><div class="bg-white p-4 rounded-lg shadow"><p class="text-sm text-gray-500">Totaal Formulieren</p><p id="derdengeld-stats-total-forms" class="text-2xl font-bold">0</p></div><div class="bg-white p-4 rounded-lg shadow"><p class="text-sm text-gray-500">Totaal Open Taken</p><p id="derdengeld-stats-open-tasks" class="text-2xl font-bold text-yellow-600">0</p></div><div class="bg-white p-4 rounded-lg shadow"><p class="text-sm text-gray-500">Volledig Afgerond</p><p id="derdengeld-stats-completed-forms" class="text-2xl font-bold text-green-600">0</p></div></div><div class="bg-white rounded-lg shadow overflow-hidden"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inzake</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Totaalbedrag</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Open Taken</th></tr></thead><tbody id="derdengeld-report-table-body" class="bg-white divide-y divide-gray-200"></tbody></table></div></main>
                 </div>
             </div>
@@ -950,6 +1064,33 @@
         let derdengeld_localDatabase = { forms: [], takeoverRequests: [], reopenRequests: [], activityLog: [] };
     
         function derdengeld_init() {
+            // Fictieve Derdengeld Data
+            const form1_id = 'form_1';
+            const taak1_id = 'taak_1_1';
+            const form2_id = 'form_2';
+            const taak2_id = 'taak_2_1';
+            const form3_id = 'form_3';
+            const taak3_id = 'taak_3_1';
+
+            derdengeld_localDatabase = {
+                forms: [
+                    { id: form1_id, datum: '2025-08-20', afkomstigVan: 'Verzekeraar A', inzake: 'Dossier Dijkstra', bedrag: 12500, aangemaaktDoor: 'Ine van Dort', taken: [{id: taak1_id, collega: 'Lesley', type: 'verantwoording', status: 'open'}], history: [], declaraties: [], doorbetalingen: [] },
+                    { id: form2_id, datum: '2025-08-18', afkomstigVan: 'Verzekeraar B', inzake: 'Dossier El Idrissi', bedrag: 7800, aangemaaktDoor: 'Lilian', taken: [{id: taak2_id, collega: 'Myriam', type: 'verantwoording', status: 'completed'}], history: [], declaraties: [], doorbetalingen: [] },
+                    { id: form3_id, datum: '2025-08-15', afkomstigVan: 'Verzekeraar C', inzake: 'Dossier de Vries', bedrag: 25000, aangemaaktDoor: 'Ine van Dort', taken: [{id: taak3_id, collega: 'Aaijvie', type: 'doorbetaling', status: 'open'}], history: [], declaraties: [], doorbetalingen: [] }
+                ],
+                takeoverRequests: [
+                    { id: 'req_1', formId: form3_id, taakId: taak3_id, requestedBy: 'Jamie-Lee', originalOwner: 'Aaijvie', status: 'pending' }
+                ],
+                reopenRequests: [],
+                activityLog: [
+                    { message: `<span class="font-semibold">Ine van Dort</span> heeft een nieuwe ontvangstbevestiging aangemaakt.`, formId: form1_id, taakId: null, type: 'generic', timestamp: new Date('2025-08-20T10:00:00') },
+                    { message: `<span class="font-semibold">Lilian</span> heeft een nieuwe ontvangstbevestiging aangemaakt.`, formId: form2_id, taakId: null, type: 'generic', timestamp: new Date('2025-08-18T14:30:00') },
+                    { message: `<span class="font-semibold">Myriam</span> heeft de taak afgerond.`, formId: form2_id, taakId: taak2_id, type: 'generic', timestamp: new Date('2025-08-19T11:00:00') },
+                    { message: `<span class="font-semibold">Jamie-Lee</span> heeft verzocht de taak over te nemen van <span class="font-semibold">Aaijvie</span>.`, formId: form3_id, taakId: taak3_id, type: 'comment', timestamp: new Date() }
+                ]
+            };
+
+
             const modalCollegaSelect = document.getElementById('derdengeld-modal-collega');
             modalCollegaSelect.innerHTML = COLLEAGUES.map(c => `<option>${c}</option>`).join('');
             document.getElementById('derdengeld-offline-banner').classList.remove('hidden');
@@ -992,7 +1133,7 @@
     
             if (approvalsContainer.innerHTML.trim() === '') approvalsContainer.innerHTML = '<p class="text-sm text-gray-500">Geen openstaande verzoeken.</p>';
             
-            activityContainer.innerHTML = derdengeld_localDatabase.activityLog.length ? [...derdengeld_localDatabase.activityLog].reverse().slice(0, 5).map(derdengeld_createActivityItem).join('') : '<p class="text-sm text-gray-500">Nog geen activiteit.</p>';
+            activityContainer.innerHTML = derdengeld_localDatabase.activityLog.length ? [...derdengeld_localDatabase.activityLog].reverse().slice(0, 10).map(derdengeld_createActivityItem).join('') : '<p class="text-sm text-gray-500">Nog geen activiteit.</p>';
             updateDashboard();
         }
     
